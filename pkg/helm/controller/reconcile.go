@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/operator-framework/operator-sdk/internal/util/diffutil"
+	"github.com/operator-framework/operator-sdk/pkg/finalizer"
 	"github.com/operator-framework/operator-sdk/pkg/helm/internal/types"
 	"github.com/operator-framework/operator-sdk/pkg/helm/release"
 )
@@ -38,16 +39,14 @@ type ReleaseHookFunc func(*rpb.Release) error
 
 // HelmOperatorReconciler reconciles custom resources as Helm releases.
 type HelmOperatorReconciler struct {
-	Client          client.Client
-	GVK             schema.GroupVersionKind
-	ManagerFactory  release.ManagerFactory
-	ReconcilePeriod time.Duration
-	releaseHook     ReleaseHookFunc
-}
+	Client           client.Client
+	FinalizerManager finalizer.Manager
+	GVK              schema.GroupVersionKind
+	ManagerFactory   release.ManagerFactory
+	ReconcilePeriod  time.Duration
 
-const (
-	finalizer = "uninstall-helm-release"
-)
+	releaseHook ReleaseHookFunc
+}
 
 // Reconcile reconciles the requested resource by installing, updating, or
 // uninstalling a Helm release based on the resource's current state. If no
@@ -80,15 +79,13 @@ func (r HelmOperatorReconciler) Reconcile(request reconcile.Request) (reconcile.
 	log = log.WithValues("release", manager.ReleaseName())
 
 	deleted := o.GetDeletionTimestamp() != nil
-	pendingFinalizers := o.GetFinalizers()
-	if !deleted && !contains(pendingFinalizers, finalizer) {
-		log.V(1).Info("Adding finalizer", "finalizer", finalizer)
-		finalizers := append(pendingFinalizers, finalizer)
-		o.SetFinalizers(finalizers)
-		err = r.updateResource(o)
-
-		// Need to requeue because finalizer update does not change metadata.generation
-		return reconcile.Result{Requeue: true}, err
+	if !deleted {
+		if updated, err := r.FinalizerManager.Reconcile(o); err != nil {
+			return reconcile.Result{}, err
+		} else if updated {
+			// Need to requeue because finalizer update does not change metadata.generation
+			return reconcile.Result{Requeue: true}, r.updateResource(o)
+		}
 	}
 
 	status.SetCondition(types.HelmAppCondition{
@@ -110,53 +107,11 @@ func (r HelmOperatorReconciler) Reconcile(request reconcile.Request) (reconcile.
 	status.RemoveCondition(types.ConditionIrreconcilable)
 
 	if deleted {
-		if !contains(pendingFinalizers, finalizer) {
-			log.Info("Resource is terminated, skipping reconciliation")
-			return reconcile.Result{}, nil
-		}
-
-		uninstalledRelease, err := manager.UninstallRelease(context.TODO())
-		if err != nil && err != release.ErrNotFound {
-			log.Error(err, "Failed to uninstall release")
-			status.SetCondition(types.HelmAppCondition{
-				Type:    types.ConditionReleaseFailed,
-				Status:  types.StatusTrue,
-				Reason:  types.ReasonUninstallError,
-				Message: err.Error(),
-			})
-			_ = r.updateResourceStatus(o, status)
+		if err := r.FinalizerManager.Finalize(o); err != nil {
 			return reconcile.Result{}, err
 		}
-		status.RemoveCondition(types.ConditionReleaseFailed)
-
-		if err == release.ErrNotFound {
-			log.Info("Release not found, removing finalizer")
-		} else {
-			log.Info("Uninstalled release")
-			if log.Enabled() {
-				fmt.Println(diffutil.Diff(uninstalledRelease.GetManifest(), ""))
-			}
-			status.SetCondition(types.HelmAppCondition{
-				Type:   types.ConditionDeployed,
-				Status: types.StatusFalse,
-				Reason: types.ReasonUninstallSuccessful,
-			})
-		}
-		if err := r.updateResourceStatus(o, status); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		finalizers := []string{}
-		for _, pendingFinalizer := range pendingFinalizers {
-			if pendingFinalizer != finalizer {
-				finalizers = append(finalizers, pendingFinalizer)
-			}
-		}
-		o.SetFinalizers(finalizers)
-		err = r.updateResource(o)
-
 		// Need to requeue because finalizer update does not change metadata.generation
-		return reconcile.Result{Requeue: true}, err
+		return reconcile.Result{Requeue: true}, r.updateResource(o)
 	}
 
 	if !manager.IsInstalled() {

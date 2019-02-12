@@ -16,6 +16,8 @@ package controller
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -37,6 +39,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/operator-framework/operator-sdk/internal/util/diffutil"
+	"github.com/operator-framework/operator-sdk/pkg/finalizer"
+	"github.com/operator-framework/operator-sdk/pkg/helm/internal/types"
 	"github.com/operator-framework/operator-sdk/pkg/helm/release"
 	"github.com/operator-framework/operator-sdk/pkg/predicate"
 )
@@ -53,14 +58,65 @@ type WatchOptions struct {
 	WatchDependentResources bool
 }
 
+func NewUninstallFinalizer(r *HelmOperatorReconciler) finalizer.Finalizer {
+	return finalizer.FinalizeFunc(func(cr finalizer.Finalizable) error {
+		o, ok := cr.(*unstructured.Unstructured)
+		if !ok {
+			return errors.New("unsupported finalizable type, expected *unstructured.Unstructured")
+		}
+		log := log.WithValues(
+			"namespace", o.GetNamespace(),
+			"name", o.GetName(),
+			"apiVersion", o.GetAPIVersion(),
+			"kind", o.GetKind(),
+		)
+		manager := r.ManagerFactory.NewManager(o)
+		status := types.StatusFor(o)
+		defer func() {
+			o.Object["status"] = status
+		}()
+
+		uninstalledRelease, err := manager.UninstallRelease(context.TODO())
+		if err != nil && err != release.ErrNotFound {
+			log.Error(err, "Failed to uninstall release")
+			status.SetCondition(types.HelmAppCondition{
+				Type:    types.ConditionReleaseFailed,
+				Status:  types.StatusTrue,
+				Reason:  types.ReasonUninstallError,
+				Message: err.Error(),
+			})
+			_ = r.updateResourceStatus(o, status)
+			return err
+		}
+		status.RemoveCondition(types.ConditionReleaseFailed)
+
+		if err == release.ErrNotFound {
+			log.Info("Release not found, removing finalizer")
+		} else {
+			log.Info("Uninstalled release")
+			if log.Enabled() {
+				fmt.Println(diffutil.Diff(uninstalledRelease.GetManifest(), ""))
+			}
+			status.SetCondition(types.HelmAppCondition{
+				Type:   types.ConditionDeployed,
+				Status: types.StatusFalse,
+				Reason: types.ReasonUninstallSuccessful,
+			})
+		}
+		return r.updateResourceStatus(o, status)
+	})
+}
+
 // Add creates a new helm operator controller and adds it to the manager
 func Add(mgr manager.Manager, options WatchOptions) error {
 	r := &HelmOperatorReconciler{
-		Client:          mgr.GetClient(),
-		GVK:             options.GVK,
-		ManagerFactory:  options.ManagerFactory,
-		ReconcilePeriod: options.ReconcilePeriod,
+		Client:           mgr.GetClient(),
+		FinalizerManager: finalizer.NewManager(),
+		GVK:              options.GVK,
+		ManagerFactory:   options.ManagerFactory,
+		ReconcilePeriod:  options.ReconcilePeriod,
 	}
+	r.FinalizerManager.RegisterFinalizer("uninstall-helm-release", NewUninstallFinalizer(r))
 
 	// Register the GVK with the schema
 	mgr.GetScheme().AddKnownTypeWithName(options.GVK, &unstructured.Unstructured{})
