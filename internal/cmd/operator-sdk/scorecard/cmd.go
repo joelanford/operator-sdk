@@ -29,8 +29,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 
 	scorecardannotations "github.com/operator-framework/operator-sdk/internal/annotations/scorecard"
+	"github.com/operator-framework/operator-sdk/internal/config"
 	"github.com/operator-framework/operator-sdk/internal/flags"
 	registryutil "github.com/operator-framework/operator-sdk/internal/registry"
 	"github.com/operator-framework/operator-sdk/internal/scorecard"
@@ -47,10 +49,14 @@ type scorecardCmd struct {
 	list           bool
 	skipCleanup    bool
 	waitTime       time.Duration
+
+	cfg *config.Configuration
 }
 
 func NewCmd() *cobra.Command {
-	c := scorecardCmd{}
+	c := scorecardCmd{
+		cfg: &config.Configuration{},
+	}
 
 	scorecardCmd := &cobra.Command{
 		Use:   "scorecard",
@@ -61,6 +67,9 @@ func NewCmd() *cobra.Command {
 one argument, either a bundle image or directory containing manifests and metadata.
 If the argument holds an image tag, it must be present remotely.`,
 		PreRunE: func(cmd *cobra.Command, args []string) (err error) {
+			if err := c.cfg.Load(); err != nil {
+				return err
+			}
 			return c.validate(args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -69,10 +78,9 @@ If the argument holds an image tag, it must be present remotely.`,
 		},
 	}
 
-	scorecardCmd.Flags().StringVar(&c.kubeconfig, "kubeconfig", "", "kubeconfig path")
+	c.cfg.BindFlags(scorecardCmd.Flags())
 	scorecardCmd.Flags().StringVarP(&c.selector, "selector", "l", "", "label selector to determine which tests are run")
 	scorecardCmd.Flags().StringVarP(&c.config, "config", "c", "", "path to scorecard config file")
-	scorecardCmd.Flags().StringVarP(&c.namespace, "namespace", "n", "", "namespace to run the test images in")
 	scorecardCmd.Flags().StringVarP(&c.outputFormat, "output", "o", "text",
 		"Output format for results. Valid values: text, json")
 	scorecardCmd.Flags().StringVarP(&c.serviceAccount, "service-account", "s", "default",
@@ -155,13 +163,13 @@ func (c *scorecardCmd) run() (err error) {
 	} else {
 		runner := scorecard.PodTestRunner{
 			ServiceAccount: c.serviceAccount,
-			Namespace:      scorecard.GetKubeNamespace(c.kubeconfig, c.namespace),
+			Namespace:      c.cfg.Namespace,
 			BundlePath:     c.bundle,
 			BundleMetadata: metadata,
 		}
 
 		// Only get the client if running tests.
-		if runner.Client, err = scorecard.GetKubeClient(c.kubeconfig); err != nil {
+		if runner.Client, err = kubernetes.NewForConfig(c.cfg.RESTConfig); err != nil {
 			return fmt.Errorf("error getting kubernetes client: %w", err)
 		}
 

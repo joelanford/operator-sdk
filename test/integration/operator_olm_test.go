@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/operator-framework/operator-sdk/internal/config"
 	operator "github.com/operator-framework/operator-sdk/internal/olm/operator"
 	operator2 "github.com/operator-framework/operator-sdk/internal/operator"
 	"github.com/operator-framework/operator-sdk/internal/util/k8sutil"
@@ -272,7 +273,7 @@ func PackageManifestsMultiplePackages(t *testing.T) {
 }
 
 func doUninstall(t *testing.T, kubeconfigPath string, timeout time.Duration) error {
-	cfg := &operator2.Configuration{KubeconfigPath: kubeconfigPath}
+	cfg := &config.Configuration{KubeconfigPath: kubeconfigPath}
 	cfg.Log = logrus.Infof
 	assert.NoError(t, cfg.Load())
 	uninstall := operator2.NewUninstall(cfg)
@@ -288,7 +289,7 @@ func doUninstall(t *testing.T, kubeconfigPath string, timeout time.Duration) err
 	return waitForPackageManifestConfigMapDeletion(ctx, cfg, defaultOperatorName)
 }
 
-func waitForPackageManifestConfigMapDeletion(ctx context.Context, cfg *operator2.Configuration, packageName string) error {
+func waitForPackageManifestConfigMapDeletion(ctx context.Context, cfg *config.Configuration, packageName string) error {
 	cfgmaps := corev1.ConfigMapList{}
 	opts := []client.ListOption{
 		client.InNamespace(cfg.Namespace),

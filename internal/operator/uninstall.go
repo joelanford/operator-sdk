@@ -31,10 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
+
+	"github.com/operator-framework/operator-sdk/internal/config"
 )
 
 type Uninstall struct {
-	config *Configuration
+	cfg *config.Configuration
 
 	Package                  string
 	DeleteAll                bool
@@ -43,9 +45,9 @@ type Uninstall struct {
 	DeleteOperatorGroupNames []string
 }
 
-func NewUninstall(cfg *Configuration) *Uninstall {
+func NewUninstall(cfg *config.Configuration) *Uninstall {
 	return &Uninstall{
-		config: cfg,
+		cfg: cfg,
 	}
 }
 
@@ -56,7 +58,7 @@ func (u *Uninstall) Run(ctx context.Context) error {
 	}
 
 	subs := v1alpha1.SubscriptionList{}
-	if err := u.config.Client.List(ctx, &subs, client.InNamespace(u.config.Namespace)); err != nil {
+	if err := u.cfg.Client.List(ctx, &subs, client.InNamespace(u.cfg.Namespace)); err != nil {
 		return fmt.Errorf("list subscriptions: %v", err)
 	}
 
@@ -77,7 +79,7 @@ func (u *Uninstall) Run(ctx context.Context) error {
 		Name:      sub.Spec.CatalogSource,
 	}
 	catsrc := &v1alpha1.CatalogSource{}
-	if err := u.config.Client.Get(ctx, catsrcKey, catsrc); err != nil {
+	if err := u.cfg.Client.Get(ctx, catsrcKey, catsrc); err != nil {
 		return fmt.Errorf("get catalog source: %v", err)
 	}
 	catsrc.SetGroupVersionKind(v1alpha1.SchemeGroupVersion.WithKind(v1alpha1.CatalogSourceKind))
@@ -128,12 +130,12 @@ func (u *Uninstall) Run(ctx context.Context) error {
 	// If this was the last subscription in the namespace and the operator group is
 	// the one we created, delete it
 	if u.DeleteOperatorGroups {
-		if err := u.config.Client.List(ctx, &subs, client.InNamespace(u.config.Namespace)); err != nil {
+		if err := u.cfg.Client.List(ctx, &subs, client.InNamespace(u.cfg.Namespace)); err != nil {
 			return fmt.Errorf("list subscriptions: %v", err)
 		}
 		if len(subs.Items) == 0 {
 			ogs := v1.OperatorGroupList{}
-			if err := u.config.Client.List(ctx, &ogs, client.InNamespace(u.config.Namespace)); err != nil {
+			if err := u.cfg.Client.List(ctx, &ogs, client.InNamespace(u.cfg.Namespace)); err != nil {
 				return fmt.Errorf("list operatorgroups: %v", err)
 			}
 			for _, og := range ogs.Items {
@@ -153,10 +155,10 @@ func (u *Uninstall) deleteObjects(ctx context.Context, waitForDelete bool, objs 
 	for _, obj := range objs {
 		obj := obj
 		lowerKind := strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind)
-		if err := u.config.Client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
+		if err := u.cfg.Client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("delete %s %q: %v", lowerKind, obj.GetName(), err)
 		} else if err == nil {
-			u.config.Log("%s %q deleted", lowerKind, obj.GetName())
+			u.cfg.Log("%s %q deleted", lowerKind, obj.GetName())
 		}
 		if waitForDelete {
 			key, err := client.ObjectKeyFromObject(obj)
@@ -164,7 +166,7 @@ func (u *Uninstall) deleteObjects(ctx context.Context, waitForDelete bool, objs 
 				return fmt.Errorf("get %s key: %v", lowerKind, err)
 			}
 			if err := wait.PollImmediateUntil(250*time.Millisecond, func() (bool, error) {
-				if err := u.config.Client.Get(ctx, key, obj); apierrors.IsNotFound(err) {
+				if err := u.cfg.Client.Get(ctx, key, obj); apierrors.IsNotFound(err) {
 					return true, nil
 				} else if err != nil {
 					return false, err
@@ -180,7 +182,7 @@ func (u *Uninstall) deleteObjects(ctx context.Context, waitForDelete bool, objs 
 
 func (u *Uninstall) getInstallPlanResources(ctx context.Context, installPlanKey types.NamespacedName) (crds, csvs, others []controllerutil.Object, err error) {
 	installPlan := &v1alpha1.InstallPlan{}
-	if err := u.config.Client.Get(ctx, installPlanKey, installPlan); err != nil {
+	if err := u.cfg.Client.Get(ctx, installPlanKey, installPlan); err != nil {
 		return nil, nil, nil, fmt.Errorf("get install plan: %v", err)
 	}
 

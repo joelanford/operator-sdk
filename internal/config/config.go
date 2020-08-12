@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package operator
+package config
 
 import (
 	"context"
+	"fmt"
 
 	v1 "github.com/operator-framework/api/pkg/operators/v1"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 type Configuration struct {
@@ -68,17 +70,17 @@ func (c *Configuration) Load() error {
 	loadingRules.ExplicitPath = c.KubeconfigPath
 	mergedConfig, err := loadingRules.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("load config: %w", err)
 	}
 	cfg := clientcmd.NewDefaultClientConfig(*mergedConfig, c.overrides)
 	cc, err := cfg.ClientConfig()
 	if err != nil {
-		return err
+		return fmt.Errorf("get client config: %w", err)
 	}
 
 	ns, _, err := cfg.Namespace()
 	if err != nil {
-		return err
+		return fmt.Errorf("get namespace: %w", err)
 	}
 
 	sch := scheme.Scheme
@@ -91,11 +93,16 @@ func (c *Configuration) Load() error {
 			return err
 		}
 	}
+	mapper, err := apiutil.NewDynamicRESTMapper(cc, apiutil.WithLazyDiscovery)
+	if err != nil {
+		return fmt.Errorf("get restmapper: %w", err)
+	}
 	cl, err := client.New(cc, client.Options{
 		Scheme: sch,
+		Mapper: mapper,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("create client: %w", err)
 	}
 
 	c.Scheme = sch
