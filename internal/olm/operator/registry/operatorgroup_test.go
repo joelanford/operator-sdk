@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	client2 "github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator"
 )
 
@@ -44,7 +45,7 @@ var _ = Describe("Tenancy", func() {
 			Expect(v1.AddToScheme(sch)).To(Succeed())
 			o = &OperatorInstaller{
 				PackageName: packageName,
-				cfg: &operator.Configuration{
+				cfg: &client2.Client{
 					Scheme:    sch,
 					Namespace: namespace,
 					Client:    fake.NewFakeClientWithScheme(sch),

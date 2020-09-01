@@ -21,20 +21,20 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator/bundle"
 )
 
-func NewCmd(cfg *operator.Configuration) *cobra.Command {
+func NewCmd(cl *client.Client) *cobra.Command {
 	var timeout time.Duration
 
-	i := bundle.NewInstall(cfg)
+	i := bundle.NewInstall(cl)
 	cmd := &cobra.Command{
 		Use:   "bundle <bundle-image>",
 		Short: "Deploy an Operator in the bundle format with OLM",
 		Args:  cobra.ExactArgs(1),
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
-			return cfg.Load()
+			return cl.Load()
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
@@ -50,7 +50,7 @@ func NewCmd(cfg *operator.Configuration) *cobra.Command {
 		},
 	}
 	cmd.Flags().SortFlags = false
-	cfg.BindFlags(cmd.PersistentFlags())
+	cl.BindFlags(cmd.PersistentFlags())
 	i.BindFlags(cmd.Flags())
 
 	cmd.Flags().DurationVar(&timeout, "timeout", 2*time.Minute, "install timeout")

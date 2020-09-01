@@ -23,7 +23,7 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/spf13/pflag"
 
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator/registry"
 )
 
@@ -34,14 +34,14 @@ type Install struct {
 	*registry.ConfigMapCatalogCreator
 	*registry.OperatorInstaller
 
-	cfg *operator.Configuration
+	client *client.Client
 }
 
-func NewInstall(cfg *operator.Configuration) Install {
+func NewInstall(cl *client.Client) Install {
 	i := Install{
-		ConfigMapCatalogCreator: registry.NewConfigMapCatalogCreator(cfg),
-		OperatorInstaller:       registry.NewOperatorInstaller(cfg),
-		cfg:                     cfg,
+		ConfigMapCatalogCreator: registry.NewConfigMapCatalogCreator(cl),
+		OperatorInstaller:       registry.NewOperatorInstaller(cl),
+		client:                  cl,
 	}
 	i.OperatorInstaller.CatalogCreator = i.ConfigMapCatalogCreator
 	return i
@@ -72,7 +72,7 @@ func (i *Install) setup() error {
 	if i.InstallMode.IsEmpty() {
 		i.InstallMode.InstallModeType = v1alpha1.InstallModeTypeAllNamespaces
 	}
-	if err := i.InstallMode.CheckCompatibility(bundle.CSV, i.cfg.Namespace); err != nil {
+	if err := i.InstallMode.CheckCompatibility(bundle.CSV, i.client.Namespace); err != nil {
 		return err
 	}
 

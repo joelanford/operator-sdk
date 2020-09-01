@@ -21,12 +21,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator"
 )
 
 func NewCmd() *cobra.Command {
 	var timeout time.Duration
-	cfg := &operator.Configuration{}
+	cfg := &client.Client{}
 	cmd := &cobra.Command{
 		Use:   "cleanup <operatorPackageName>",
 		Short: "Clean up an Operator deployed with the 'run' subcommand",

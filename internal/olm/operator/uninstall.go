@@ -31,10 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
+
+	client2 "github.com/operator-framework/operator-sdk/internal/client"
 )
 
 type Uninstall struct {
-	config *Configuration
+	config *client2.Client
 
 	Package                  string
 	DeleteAll                bool
@@ -45,7 +47,7 @@ type Uninstall struct {
 	Logf func(string, ...interface{})
 }
 
-func NewUninstall(cfg *Configuration) *Uninstall {
+func NewUninstall(cfg *client2.Client) *Uninstall {
 	return &Uninstall{
 		config: cfg,
 	}

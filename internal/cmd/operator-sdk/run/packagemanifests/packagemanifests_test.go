@@ -18,13 +18,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
+	"github.com/operator-framework/operator-sdk/internal/client"
 )
 
 var _ = Describe("Running a run packagemanifests command", func() {
 	Describe("NewCmd", func() {
 		It("builds a cobra command", func() {
-			cfg := &operator.Configuration{}
+			cfg := &client.Client{}
 			cmd := NewCmd(cfg)
 			Expect(cmd).NotTo(BeNil())
 			Expect(cmd.Use).NotTo(BeNil())

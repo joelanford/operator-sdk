@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package operator_test
+package client_test
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
+	"github.com/operator-framework/operator-sdk/internal/client"
 )
 
 const (
@@ -37,11 +37,11 @@ const (
 var _ = Describe("Config", func() {
 	Describe("Load", func() {
 		var (
-			c           operator.Configuration
+			c           client.Client
 			defaultFile *os.File
 		)
 		BeforeEach(func() {
-			c = operator.Configuration{}
+			c = client.Client{}
 
 			var err error
 			defaultFile, err = ioutil.TempFile("", "operator-sdk-test-kubeconfig")
@@ -83,7 +83,7 @@ var _ = Describe("Config", func() {
 				Expect(os.Unsetenv("KUBECONFIG")).To(Succeed())
 				clientcmd.RecommendedHomeFile = defaultFile.Name()
 
-				c = operator.Configuration{}
+				c = client.Client{}
 			})
 
 			AfterEach(func() {
@@ -130,7 +130,7 @@ var _ = Describe("Config", func() {
 	})
 })
 
-func verifyKubeconfig(c operator.Configuration, expectedNs, expectedHost string) {
+func verifyKubeconfig(c client.Client, expectedNs, expectedHost string) {
 	Expect(c.Client).NotTo(BeNil())
 	Expect(c.RESTConfig).NotTo(BeNil())
 	Expect(c.RESTConfig.Host).To(Equal(expectedHost))

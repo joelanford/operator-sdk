@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	client2 "github.com/operator-framework/operator-sdk/internal/client"
 	olmclient "github.com/operator-framework/operator-sdk/internal/olm/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator"
 )
@@ -40,10 +41,10 @@ type OperatorInstaller struct {
 	InstallMode       operator.InstallMode
 	CatalogCreator    CatalogCreator
 
-	cfg *operator.Configuration
+	cfg *client2.Client
 }
 
-func NewOperatorInstaller(cfg *operator.Configuration) *OperatorInstaller {
+func NewOperatorInstaller(cfg *client2.Client) *OperatorInstaller {
 	return &OperatorInstaller{cfg: cfg}
 }
 

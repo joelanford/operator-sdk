@@ -23,7 +23,7 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator/registry/index"
 	registryutil "github.com/operator-framework/operator-sdk/internal/registry"
 )
@@ -35,12 +35,12 @@ type IndexImageCatalogCreator struct {
 	InjectBundleMode string
 	BundleImage      string
 
-	cfg *operator.Configuration
+	client *client.Client
 }
 
-func NewIndexImageCatalogCreator(cfg *operator.Configuration) *IndexImageCatalogCreator {
+func NewIndexImageCatalogCreator(cl *client.Client) *IndexImageCatalogCreator {
 	return &IndexImageCatalogCreator{
-		cfg: cfg,
+		client: cl,
 	}
 }
 
@@ -56,7 +56,7 @@ func (c IndexImageCatalogCreator) CreateCatalog(ctx context.Context, name string
 	fmt.Printf("IndexImageCatalogCreator.InjectBundleMode:  %q\n", c.InjectBundleMode)
 
 	// create a basic catalog source type
-	cs := newCatalogSource(name, c.cfg.Namespace,
+	cs := newCatalogSource(name, c.client.Namespace,
 		withSDKPublisher(c.PackageName))
 
 	// initialize and create the registry pod with provided index image
@@ -72,7 +72,7 @@ func (c IndexImageCatalogCreator) CreateCatalog(ctx context.Context, name string
 	}
 
 	// make catalog source the owner of registry pod object
-	if err := controllerutil.SetOwnerReference(cs, pod, c.cfg.Scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(cs, pod, c.client.Scheme); err != nil {
 		return nil, fmt.Errorf("error in setting registry pod owner reference: %v", err)
 	}
 
@@ -104,7 +104,7 @@ func (c IndexImageCatalogCreator) getDBPath(ctx context.Context) (string, error)
 
 func (c IndexImageCatalogCreator) createRegistryPod(ctx context.Context, dbPath string) (*index.RegistryPod, error) {
 	// Create registry pod, assigning its owner as the catalog source
-	registryPod, err := index.NewRegistryPod(c.cfg.Client, dbPath, c.BundleImage, c.cfg.Namespace)
+	registryPod, err := index.NewRegistryPod(c.client, dbPath, c.BundleImage, c.client.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("error in initializing registry pod")
 	}

@@ -32,8 +32,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	scorecardannotations "github.com/operator-framework/operator-sdk/internal/annotations/scorecard"
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/flags"
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
 	registryutil "github.com/operator-framework/operator-sdk/internal/registry"
 	"github.com/operator-framework/operator-sdk/internal/scorecard"
 )
@@ -48,12 +48,12 @@ type scorecardCmd struct {
 	skipCleanup    bool
 	waitTime       time.Duration
 
-	cfg *operator.Configuration
+	client *client.Client
 }
 
 func NewCmd() *cobra.Command {
 	c := scorecardCmd{
-		cfg: &operator.Configuration{
+		client: &client.Client{
 			NamespaceFlagInfo: &clientcmd.FlagInfo{
 				LongName:    "namespace",
 				ShortName:   "n",
@@ -77,7 +77,7 @@ If the argument holds an image tag, it must be present remotely.`,
 			if err := c.validate(args); err != nil {
 				return err
 			}
-			return c.cfg.Load()
+			return c.client.Load()
 		},
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			c.bundle = args[0]
@@ -85,7 +85,7 @@ If the argument holds an image tag, it must be present remotely.`,
 		},
 	}
 
-	c.cfg.BindFlags(scorecardCmd.Flags())
+	c.client.BindFlags(scorecardCmd.Flags())
 	scorecardCmd.Flags().StringVarP(&c.selector, "selector", "l", "", "label selector to determine which tests are run")
 	scorecardCmd.Flags().StringVarP(&c.config, "config", "c", "", "path to scorecard config file")
 	scorecardCmd.Flags().StringVarP(&c.outputFormat, "output", "o", "text",
@@ -169,14 +169,14 @@ func (c *scorecardCmd) run() (err error) {
 		scorecardTests = o.List()
 	} else {
 		// Only get the client if running tests.
-		kubeClient, err := kubernetes.NewForConfig(c.cfg.RESTConfig)
+		kubeClient, err := kubernetes.NewForConfig(c.client.RESTConfig)
 		if err != nil {
 			return fmt.Errorf("error getting kubernetes client: %w", err)
 		}
 
 		o.TestRunner = &scorecard.PodTestRunner{
 			ServiceAccount: c.serviceAccount,
-			Namespace:      c.cfg.Namespace,
+			Namespace:      c.client.Namespace,
 			BundlePath:     c.bundle,
 			BundleMetadata: metadata,
 			Client:         kubeClient,

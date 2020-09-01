@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package operator_test
+package client_test
 
 import (
 	"testing"
@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOperator(t *testing.T) {
+func TestClient(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Operator Suite")
 }

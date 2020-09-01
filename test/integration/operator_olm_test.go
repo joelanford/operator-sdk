@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	sdkclient "github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator/packagemanifests"
 	"github.com/operator-framework/operator-sdk/internal/util/k8sutil"
@@ -101,9 +102,9 @@ func PackageManifestsOwnNamespace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &operator.Configuration{KubeconfigPath: kubeconfigPath}
-	assert.NoError(t, cfg.Load())
-	i := packagemanifests.NewInstall(cfg)
+	cl := &sdkclient.Client{KubeconfigPath: kubeconfigPath}
+	assert.NoError(t, cl.Load())
+	i := packagemanifests.NewInstall(cl)
 	i.PackageManifestsDirectory = manifestsDir
 	i.Version = defaultOperatorVersion
 	i.InstallMode = operator.InstallMode{
@@ -163,9 +164,9 @@ func PackageManifestsBasic(t *testing.T) {
 		os.RemoveAll(tmp)
 		t.Fatal(err)
 	}
-	cfg := &operator.Configuration{KubeconfigPath: kubeconfigPath}
-	assert.NoError(t, cfg.Load())
-	i := packagemanifests.NewInstall(cfg)
+	cl := &sdkclient.Client{KubeconfigPath: kubeconfigPath}
+	assert.NoError(t, cl.Load())
+	i := packagemanifests.NewInstall(cl)
 	i.PackageManifestsDirectory = manifestsDir
 	i.Version = defaultOperatorVersion
 
@@ -255,9 +256,9 @@ func PackageManifestsMultiplePackages(t *testing.T) {
 		os.RemoveAll(tmp)
 		t.Fatal(err)
 	}
-	cfg := &operator.Configuration{KubeconfigPath: kubeconfigPath}
-	assert.NoError(t, cfg.Load())
-	i := packagemanifests.NewInstall(cfg)
+	cl := &sdkclient.Client{KubeconfigPath: kubeconfigPath}
+	assert.NoError(t, cl.Load())
+	i := packagemanifests.NewInstall(cl)
 	i.PackageManifestsDirectory = manifestsDir
 	i.Version = operatorVersion2
 
@@ -268,9 +269,9 @@ func PackageManifestsMultiplePackages(t *testing.T) {
 }
 
 func doUninstall(t *testing.T, kubeconfigPath string) error {
-	cfg := &operator.Configuration{KubeconfigPath: kubeconfigPath}
-	assert.NoError(t, cfg.Load())
-	uninstall := operator.NewUninstall(cfg)
+	cl := &sdkclient.Client{KubeconfigPath: kubeconfigPath}
+	assert.NoError(t, cl.Load())
+	uninstall := operator.NewUninstall(cl)
 	uninstall.DeleteAll = true
 	uninstall.DeleteOperatorGroupNames = []string{operator.SDKOperatorGroupName}
 	uninstall.Package = defaultOperatorName
@@ -281,7 +282,7 @@ func doUninstall(t *testing.T, kubeconfigPath string) error {
 	if err := uninstall.Run(ctx); err != nil {
 		return err
 	}
-	return waitForPackageManifestConfigMapDeletion(ctx, cfg, defaultOperatorName)
+	return waitForPackageManifestConfigMapDeletion(ctx, cl, defaultOperatorName)
 }
 
 type installer interface {
@@ -296,14 +297,14 @@ func doInstall(i installer) error {
 	return err
 }
 
-func waitForPackageManifestConfigMapDeletion(ctx context.Context, cfg *operator.Configuration, packageName string) error {
+func waitForPackageManifestConfigMapDeletion(ctx context.Context, cl *sdkclient.Client, packageName string) error {
 	cfgmaps := corev1.ConfigMapList{}
 	opts := []client.ListOption{
-		client.InNamespace(cfg.Namespace),
+		client.InNamespace(cl.Namespace),
 		client.MatchingLabels{"owner": "operator-sdk", "package-name": packageName},
 	}
 	return wait.PollImmediateUntil(250*time.Millisecond, func() (bool, error) {
-		if err := cfg.Client.List(ctx, &cfgmaps, opts...); err != nil {
+		if err := cl.List(ctx, &cfgmaps, opts...); err != nil {
 			return false, err
 		}
 		return len(cfgmaps.Items) == 0, nil

@@ -21,14 +21,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator/packagemanifests"
 )
 
-func NewCmd(cfg *operator.Configuration) *cobra.Command {
+func NewCmd(cl *client.Client) *cobra.Command {
 	var timeout time.Duration
 
-	i := packagemanifests.NewInstall(cfg)
+	i := packagemanifests.NewInstall(cl)
 	cmd := &cobra.Command{
 		Use:   "packagemanifests [packagemanifests-root-dir]",
 		Short: "Deploy an Operator in the package manifests format with OLM",

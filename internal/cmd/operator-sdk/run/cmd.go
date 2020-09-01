@@ -17,12 +17,12 @@ package run
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/cmd/operator-sdk/run/packagemanifests"
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
 )
 
 func NewCmd() *cobra.Command {
-	cfg := &operator.Configuration{}
+	cl := &client.Client{}
 
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -30,16 +30,16 @@ func NewCmd() *cobra.Command {
 		// TODO(joelanford): remove the second sentence when `run bundle` implementation is complete
 		Long: `This command has subcommands that will deploy your Operator with OLM.
 Currently only the package manifests format is supported via the 'packagemanifests' subcommand.`,
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return cfg.Load() },
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return cl.Load() },
 	}
 
 	cmd.AddCommand(
 		// TODO(joelanford): enable bundle command when implementation is complete
-		//bundle.NewCmd(cfg),
-		packagemanifests.NewCmd(cfg),
+		//bundle.NewCmd(cl),
+		packagemanifests.NewCmd(cl),
 	)
 
-	cfg.BindFlags(cmd.PersistentFlags())
+	cl.BindFlags(cmd.PersistentFlags())
 
 	return cmd
 }

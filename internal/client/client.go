@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package operator
+package client
 
 import (
 	"context"
@@ -29,11 +29,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-type Configuration struct {
+type Client struct {
+	client.Client
+
 	Namespace      string
 	KubeconfigPath string
 	RESTConfig     *rest.Config
-	Client         client.Client
 	Scheme         *runtime.Scheme
 
 	NamespaceFlagInfo  *clientcmd.FlagInfo
@@ -44,7 +45,7 @@ type Configuration struct {
 	overrides *clientcmd.ConfigOverrides
 }
 
-func (c *Configuration) BindFlags(fs *pflag.FlagSet) {
+func (c *Client) BindFlags(fs *pflag.FlagSet) {
 	if c.overrides == nil {
 		c.overrides = &clientcmd.ConfigOverrides{}
 	}
@@ -80,7 +81,7 @@ func (c *Configuration) BindFlags(fs *pflag.FlagSet) {
 	}
 }
 
-func (c *Configuration) Load() error {
+func (c *Client) Load() error {
 	if c.overrides == nil {
 		c.overrides = &clientcmd.ConfigOverrides{}
 	}
@@ -124,7 +125,7 @@ func (c *Configuration) Load() error {
 	}
 
 	c.Scheme = sch
-	c.Client = &operatorClient{cl}
+	c.Client = cl
 	if c.Namespace == "" {
 		c.Namespace = ns
 	}
@@ -133,11 +134,7 @@ func (c *Configuration) Load() error {
 	return nil
 }
 
-type operatorClient struct {
-	client.Client
-}
-
-func (c *operatorClient) Create(ctx context.Context, obj runtime.Object, opts ...client.CreateOption) error {
+func (c *Client) Create(ctx context.Context, obj runtime.Object, opts ...client.CreateOption) error {
 	opts = append(opts, client.FieldOwner("operator-sdk"))
 	return c.Client.Create(ctx, obj, opts...)
 }

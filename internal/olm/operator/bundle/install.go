@@ -25,7 +25,7 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/spf13/pflag"
 
-	"github.com/operator-framework/operator-sdk/internal/olm/operator"
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/operator/registry"
 	registryutil "github.com/operator-framework/operator-sdk/internal/registry"
 )
@@ -36,15 +36,15 @@ type Install struct {
 	*registry.IndexImageCatalogCreator
 	*registry.OperatorInstaller
 
-	cfg *operator.Configuration
+	client *client.Client
 }
 
-func NewInstall(cfg *operator.Configuration) Install {
+func NewInstall(cl *client.Client) Install {
 	i := Install{
-		OperatorInstaller: registry.NewOperatorInstaller(cfg),
-		cfg:               cfg,
+		OperatorInstaller: registry.NewOperatorInstaller(cl),
+		client:            cl,
 	}
-	i.IndexImageCatalogCreator = registry.NewIndexImageCatalogCreator(cfg)
+	i.IndexImageCatalogCreator = registry.NewIndexImageCatalogCreator(cl)
 	i.CatalogCreator = i.IndexImageCatalogCreator
 	return i
 }
@@ -71,7 +71,7 @@ func (i *Install) setup(ctx context.Context) error {
 		return err
 	}
 
-	if err := i.InstallMode.CheckCompatibility(csv, i.cfg.Namespace); err != nil {
+	if err := i.InstallMode.CheckCompatibility(csv, i.client.Namespace); err != nil {
 		return err
 	}
 
