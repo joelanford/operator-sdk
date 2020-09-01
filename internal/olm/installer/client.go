@@ -34,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/rest"
 
+	"github.com/operator-framework/operator-sdk/internal/client"
 	olmresourceclient "github.com/operator-framework/operator-sdk/internal/olm/client"
 )
 
@@ -46,26 +46,20 @@ const (
 )
 
 type Client struct {
-	*olmresourceclient.Client
+	olmresourceclient.Client
 	HTTPClient      http.Client
 	BaseDownloadURL string
 }
 
-func ClientForConfig(cfg *rest.Config) (*Client, error) {
-	cl, err := olmresourceclient.NewClientForConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get OLM resource client: %v", err)
-	}
-	c := &Client{
-		Client:          cl,
+func NewClient(cl client.Client) Client {
+	return Client{
+		Client:          olmresourceclient.Client(cl),
 		HTTPClient:      *http.DefaultClient,
 		BaseDownloadURL: "https://github.com/operator-framework/operator-lifecycle-manager/releases",
 	}
-	return c, nil
 }
 
 func (c Client) InstallVersion(ctx context.Context, namespace, version string) (*olmresourceclient.Status, error) {
-
 	resources, err := c.getResources(ctx, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resources: %v", err)
@@ -275,7 +269,7 @@ func (c Client) getSubscriptionCSV(ctx context.Context, subKey types.NamespacedN
 	var csvKey types.NamespacedName
 	subscriptionInstalledCSV := func() (bool, error) {
 		sub := olmapiv1alpha1.Subscription{}
-		err := c.KubeClient.Get(ctx, subKey, &sub)
+		err := c.Get(ctx, subKey, &sub)
 		if err != nil {
 			return false, err
 		}

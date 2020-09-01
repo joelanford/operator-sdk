@@ -17,12 +17,9 @@ package installer
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const (
@@ -33,48 +30,12 @@ const (
 )
 
 type Manager struct {
-	Client       *Client
-	Version      string
-	Timeout      time.Duration
-	OLMNamespace string
-	once         sync.Once
+	Client  Client
+	Version string
 }
 
-func (m *Manager) initialize() (err error) {
-	m.once.Do(func() {
-		if m.Client == nil {
-			cfg, cerr := config.GetConfig()
-			if cerr != nil {
-				err = fmt.Errorf("failed to get Kubernetes config: %v", err)
-				return
-			}
-
-			client, cerr := ClientForConfig(cfg)
-			if cerr != nil {
-				err = fmt.Errorf("failed to create manager client: %v", err)
-				return
-			}
-			m.Client = client
-		}
-		if m.Timeout <= 0 {
-			m.Timeout = DefaultTimeout
-		}
-		if m.OLMNamespace == "" {
-			m.OLMNamespace = DefaultOLMNamespace
-		}
-	})
-	return err
-}
-
-func (m *Manager) Install() error {
-	if err := m.initialize(); err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), m.Timeout)
-	defer cancel()
-
-	status, err := m.Client.InstallVersion(ctx, m.OLMNamespace, m.Version)
+func (m *Manager) Install(ctx context.Context) error {
+	status, err := m.Client.InstallVersion(ctx, m.Client.Namespace, m.Version)
 	if err != nil {
 		return err
 	}
@@ -85,15 +46,8 @@ func (m *Manager) Install() error {
 	return nil
 }
 
-func (m *Manager) Uninstall() error {
-	if err := m.initialize(); err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), m.Timeout)
-	defer cancel()
-
-	if version, err := m.Client.GetInstalledVersion(ctx, m.OLMNamespace); err != nil {
+func (m *Manager) Uninstall(ctx context.Context) error {
+	if version, err := m.Client.GetInstalledVersion(ctx, m.Client.Namespace); err != nil {
 		if m.Version == "" {
 			return fmt.Errorf("error getting installed OLM version (set --version to override the default version): %v", err)
 		}
@@ -105,7 +59,7 @@ func (m *Manager) Uninstall() error {
 		m.Version = version
 	}
 
-	if err := m.Client.UninstallVersion(ctx, m.OLMNamespace, m.Version); err != nil {
+	if err := m.Client.UninstallVersion(ctx, m.Client.Namespace, m.Version); err != nil {
 		return err
 	}
 
@@ -113,15 +67,8 @@ func (m *Manager) Uninstall() error {
 	return nil
 }
 
-func (m *Manager) Status() error {
-	if err := m.initialize(); err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), m.Timeout)
-	defer cancel()
-
-	if version, err := m.Client.GetInstalledVersion(ctx, m.OLMNamespace); err != nil {
+func (m *Manager) Status(ctx context.Context) error {
+	if version, err := m.Client.GetInstalledVersion(ctx, m.Client.Namespace); err != nil {
 		if m.Version == "" {
 			return fmt.Errorf("error getting installed OLM version (set --version to override the default version): %v", err)
 		}
@@ -133,7 +80,7 @@ func (m *Manager) Status() error {
 		m.Version = version
 	}
 
-	status, err := m.Client.GetStatus(ctx, m.OLMNamespace, m.Version)
+	status, err := m.Client.GetStatus(ctx, m.Client.Namespace, m.Version)
 	if err != nil {
 		return err
 	}
@@ -142,8 +89,4 @@ func (m *Manager) Status() error {
 	fmt.Print("\n")
 	fmt.Println(status)
 	return nil
-}
-
-func (m *Manager) AddToFlagSet(fs *pflag.FlagSet) {
-	fs.DurationVar(&m.Timeout, "timeout", DefaultTimeout, "time to wait for the command to complete before failing")
 }

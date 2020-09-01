@@ -15,19 +15,35 @@
 package olm
 
 import (
-	"github.com/operator-framework/operator-sdk/internal/olm/installer"
+	"context"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/operator-framework/operator-sdk/internal/client"
+	"github.com/operator-framework/operator-sdk/internal/olm/installer"
 )
 
 func newInstallCmd() *cobra.Command {
-	mgr := &installer.Manager{}
+	var (
+		mgr     installer.Manager
+		timeout time.Duration
+	)
+	cl := client.Client{
+		SkipNamespaceFlag:  true,
+		SkipKubeconfigFlag: true,
+	}
 	cmd := &cobra.Command{
-		Use:   "install",
-		Short: "Install Operator Lifecycle Manager in your cluster",
+		Use:               "install",
+		Short:             "Install Operator Lifecycle Manager in your cluster",
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return cl.Load() },
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := mgr.Install(); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			mgr.Client = installer.NewClient(cl)
+			if err := mgr.Install(ctx); err != nil {
 				log.Fatalf("Failed to install OLM version %q: %s", mgr.Version, err)
 			}
 			return nil
@@ -35,6 +51,7 @@ func newInstallCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&mgr.Version, "version", installer.DefaultVersion, "version of OLM resources to install")
-	mgr.AddToFlagSet(cmd.Flags())
+	cmd.Flags().DurationVar(&timeout, "timeout", installer.DefaultTimeout, "time to wait for the command to complete before failing")
+	cl.BindFlags(cmd.Flags())
 	return cmd
 }

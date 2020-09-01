@@ -38,7 +38,7 @@ func (rr *RegistryResources) getRegistryConfigMaps(ctx context.Context, namespac
 		client.MatchingLabels(makeRegistryLabels(rr.Pkg.PackageName)),
 		client.InNamespace(namespace),
 	}
-	err := rr.Client.KubeClient.List(ctx, &list, opts...)
+	err := rr.Client.List(ctx, &list, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("error listing operator %q ConfigMaps: %w", rr.Pkg.PackageName, err)
 	}

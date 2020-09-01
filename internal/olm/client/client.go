@@ -35,46 +35,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	deploymentutil "k8s.io/kubectl/pkg/util/deployment"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/operator-framework/operator-sdk/internal/client"
 )
 
 var ErrOLMNotInstalled = errors.New("no existing installation found")
 
-var Scheme = scheme.Scheme
-
-func init() {
-	if err := olmapiv1alpha1.AddToScheme(Scheme); err != nil {
-		log.Fatalf("Failed to add OLM operator API v1alpha1 types to scheme: %v", err)
-	}
-}
-
-type Client struct {
-	KubeClient client.Client
-}
-
-func NewClientForConfig(cfg *rest.Config) (*Client, error) {
-	rm, err := apiutil.NewDynamicRESTMapper(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create dynamic rest mapper: %v", err)
-	}
-
-	cl, err := client.New(cfg, client.Options{
-		Scheme: Scheme,
-		Mapper: rm,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %v", err)
-	}
-
-	c := &Client{
-		KubeClient: cl,
-	}
-	return c, nil
-}
+type Client client.Client
 
 func (c Client) DoCreate(ctx context.Context, objs ...runtime.Object) error {
 	for _, obj := range objs {
@@ -84,7 +53,7 @@ func (c Client) DoCreate(ctx context.Context, objs ...runtime.Object) error {
 		}
 		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		log.Infof("  Creating %s %q", kind, getName(a.GetNamespace(), a.GetName()))
-		err = c.KubeClient.Create(ctx, obj)
+		err = c.Create(ctx, obj)
 		if err != nil {
 			if !apierrors.IsAlreadyExists(err) {
 				return err
@@ -103,19 +72,19 @@ func (c Client) DoDelete(ctx context.Context, objs ...runtime.Object) error {
 		}
 		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		log.Infof("  Deleting %s %q", kind, getName(a.GetNamespace(), a.GetName()))
-		err = c.KubeClient.Delete(ctx, obj, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		err = c.Delete(ctx, obj, crclient.PropagationPolicy(metav1.DeletePropagationBackground))
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return err
 			}
 			log.Infof("    %s %q does not exist", kind, getName(a.GetNamespace(), a.GetName()))
 		}
-		key, err := client.ObjectKeyFromObject(obj)
+		key, err := crclient.ObjectKeyFromObject(obj)
 		if err != nil {
 			return err
 		}
 		if err := wait.PollImmediateUntil(time.Millisecond*100, func() (bool, error) {
-			err := c.KubeClient.Get(ctx, key, obj)
+			err := c.Get(ctx, key, obj)
 			if apierrors.IsNotFound(err) {
 				return true, nil
 			} else if err != nil {
@@ -144,7 +113,7 @@ func (c Client) DoRolloutWait(ctx context.Context, key types.NamespacedName) err
 
 	rolloutComplete := func() (bool, error) {
 		deployment := appsv1.Deployment{}
-		err := c.KubeClient.Get(ctx, key, &deployment)
+		err := c.Get(ctx, key, &deployment)
 		if err != nil {
 			return false, err
 		}
@@ -196,7 +165,7 @@ func (c Client) DoCSVWait(ctx context.Context, key types.NamespacedName) error {
 
 	csvPhaseSucceeded := func() (bool, error) {
 		csv := olmapiv1alpha1.ClusterServiceVersion{}
-		err := c.KubeClient.Get(ctx, key, &csv)
+		err := c.Get(ctx, key, &csv)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				once.Do(func() {
@@ -219,9 +188,9 @@ func (c Client) DoCSVWait(ctx context.Context, key types.NamespacedName) error {
 
 // GetInstalledVersion returns the OLM version installed in the namespace informed.
 func (c Client) GetInstalledVersion(ctx context.Context, namespace string) (string, error) {
-	opts := client.InNamespace(namespace)
+	opts := crclient.InNamespace(namespace)
 	csvs := &olmapiv1alpha1.ClusterServiceVersionList{}
-	if err := c.KubeClient.List(ctx, csvs, opts); err != nil {
+	if err := c.List(ctx, csvs, opts); err != nil {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return "", ErrOLMNotInstalled
 		}

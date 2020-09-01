@@ -46,7 +46,7 @@ func NewConfigMapCatalogCreator(cl *client.Client) *ConfigMapCatalogCreator {
 func (c ConfigMapCatalogCreator) CreateCatalog(ctx context.Context, name string) (*v1alpha1.CatalogSource, error) {
 	cs := newCatalogSource(name, c.client.Namespace,
 		withSDKPublisher(c.Package.PackageName))
-	if err := c.client.Client.Create(ctx, cs); err != nil {
+	if err := c.client.Create(ctx, cs); err != nil {
 		return nil, fmt.Errorf("error creating catalog source: %w", err)
 	}
 
@@ -62,12 +62,11 @@ func (c ConfigMapCatalogCreator) CreateCatalog(ctx context.Context, name string)
 }
 
 func (c ConfigMapCatalogCreator) registryUp(ctx context.Context, cs *v1alpha1.CatalogSource) (err error) {
+	cl := olmclient.Client(*c.client)
 	rr := configmap.RegistryResources{
 		Pkg:     c.Package,
 		Bundles: c.Bundles,
-	}
-	if rr.Client, err = olmclient.NewClientForConfig(c.client.RESTConfig); err != nil {
-		return err
+		Client:  &cl,
 	}
 
 	if exists, err := rr.IsRegistryExist(ctx, c.client.Namespace); err != nil {

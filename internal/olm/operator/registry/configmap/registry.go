@@ -57,7 +57,7 @@ func (rr *RegistryResources) IsRegistryExist(ctx context.Context, namespace stri
 		Name:      getRegistryServerName(rr.Pkg.PackageName),
 		Namespace: namespace,
 	}
-	err := rr.Client.KubeClient.Get(ctx, depKey, &appsv1.Deployment{})
+	err := rr.Client.Get(ctx, depKey, &appsv1.Deployment{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil
@@ -125,7 +125,7 @@ func (rr *RegistryResources) CreatePackageManifestsRegistry(ctx context.Context,
 		Namespace: catsrc.Namespace,
 		Name:      catsrc.Name,
 	}
-	if err := rr.Client.KubeClient.Get(ctx, catsrcKey, catsrc); err != nil {
+	if err := rr.Client.Get(ctx, catsrcKey, catsrc); err != nil {
 		return fmt.Errorf("get catalog source: %v", err)
 	}
 
@@ -139,7 +139,7 @@ func (rr *RegistryResources) CreatePackageManifestsRegistry(ctx context.Context,
 	for cmName, binaryData := range binaryDataByConfigMap {
 		cm := newConfigMap(cmName, namespace, withBinaryData(binaryData))
 		cm.SetLabels(labels)
-		if err := controllerutil.SetOwnerReference(catsrc, cm, olmclient.Scheme); err != nil {
+		if err := controllerutil.SetOwnerReference(catsrc, cm, rr.Client.Scheme); err != nil {
 			return fmt.Errorf("set configmap %q owner reference: %v", cm.GetName(), err)
 		}
 		objs = append(objs, cm)
@@ -154,12 +154,12 @@ func (rr *RegistryResources) CreatePackageManifestsRegistry(ctx context.Context,
 	// Add registry Deployment and Service to objects.
 	dep := newRegistryDeployment(pkgName, namespace, opts...)
 	dep.SetLabels(labels)
-	if err := controllerutil.SetOwnerReference(catsrc, dep, olmclient.Scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(catsrc, dep, rr.Client.Scheme); err != nil {
 		return fmt.Errorf("set deployment %q owner reference: %v", dep.GetName(), err)
 	}
 	service := newRegistryService(pkgName, namespace, withTCPPort("grpc", registryGRPCPort))
 	service.SetLabels(labels)
-	if err := controllerutil.SetOwnerReference(catsrc, service, olmclient.Scheme); err != nil {
+	if err := controllerutil.SetOwnerReference(catsrc, service, rr.Client.Scheme); err != nil {
 		return fmt.Errorf("set service %q owner reference: %v", service.GetName(), err)
 	}
 	objs = append(objs, dep, service)

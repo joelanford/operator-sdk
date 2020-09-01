@@ -45,7 +45,7 @@ var _ = Describe("Tenancy", func() {
 			Expect(v1.AddToScheme(sch)).To(Succeed())
 			o = &OperatorInstaller{
 				PackageName: packageName,
-				cfg: &client2.Client{
+				client: &client2.Client{
 					Scheme:    sch,
 					Namespace: namespace,
 					Client:    fake.NewFakeClientWithScheme(sch),
@@ -66,7 +66,7 @@ var _ = Describe("Tenancy", func() {
 
 		Context("with an existing, valid OperatorGroup", func() {
 			It("returns no error and the existing SDK OperatorGroup with no target namespaces is unchanged", func() {
-				existingOG := createOperatorGroupHelper(ctx, o.cfg.Client, operator.SDKOperatorGroupName, namespace)
+				existingOG := createOperatorGroupHelper(ctx, o.client.Client, operator.SDKOperatorGroupName, namespace)
 				Expect(o.createOperatorGroup(ctx)).To(Succeed())
 				og, ogExists, err := o.getOperatorGroup(ctx)
 				Expect(err).To(BeNil())
@@ -76,7 +76,7 @@ var _ = Describe("Tenancy", func() {
 			It("returns no error and the existing SDK OperatorGroup with the same set of target namespaces is unchanged", func() {
 				targetNamespaces := []string{"foo", "bar"}
 				o.InstallMode.TargetNamespaces = targetNamespaces
-				existingOG := createOperatorGroupHelper(ctx, o.cfg.Client, operator.SDKOperatorGroupName, namespace, targetNamespaces...)
+				existingOG := createOperatorGroupHelper(ctx, o.client.Client, operator.SDKOperatorGroupName, namespace, targetNamespaces...)
 				Expect(o.createOperatorGroup(ctx)).To(Succeed())
 				og, ogExists, err := o.getOperatorGroup(ctx)
 				Expect(err).To(BeNil())
@@ -84,7 +84,7 @@ var _ = Describe("Tenancy", func() {
 				Expect(og.GetName()).To(Equal(existingOG.GetName()))
 			})
 			It("returns no error and the existing non-SDK OperatorGroup is unchanged", func() {
-				existingOG := createOperatorGroupHelper(ctx, o.cfg.Client, nonSDKOperatorGroupName, namespace)
+				existingOG := createOperatorGroupHelper(ctx, o.client.Client, nonSDKOperatorGroupName, namespace)
 				Expect(o.createOperatorGroup(ctx)).To(Succeed())
 				og, ogExists, err := o.getOperatorGroup(ctx)
 				Expect(err).To(BeNil())
@@ -93,7 +93,7 @@ var _ = Describe("Tenancy", func() {
 			})
 			It("returns no error and the existing OperatorGroup in another namespace is unchanged", func() {
 				otherNS := "my-ns"
-				existingOG := createOperatorGroupHelper(ctx, o.cfg.Client, operator.SDKOperatorGroupName, otherNS)
+				existingOG := createOperatorGroupHelper(ctx, o.client.Client, operator.SDKOperatorGroupName, otherNS)
 				Expect(o.createOperatorGroup(ctx)).To(Succeed())
 				og, ogExists, err := o.getOperatorGroup(ctx)
 				Expect(err).To(BeNil())
@@ -105,12 +105,12 @@ var _ = Describe("Tenancy", func() {
 
 		Context("with an existing, invalid OperatorGroup", func() {
 			It("returns an error for an SDK OperatorGroup", func() {
-				_ = createOperatorGroupHelper(ctx, o.cfg.Client, operator.SDKOperatorGroupName, namespace, "foo")
+				_ = createOperatorGroupHelper(ctx, o.client.Client, operator.SDKOperatorGroupName, namespace, "foo")
 				err = o.createOperatorGroup(ctx)
 				Expect(err.Error()).To(ContainSubstring(`existing SDK-managed operator group's namespaces ["foo"] do not match desired namespaces []`))
 			})
 			It("returns an error for a non-SDK OperatorGroup", func() {
-				_ = createOperatorGroupHelper(ctx, o.cfg.Client, nonSDKOperatorGroupName, namespace, "foo")
+				_ = createOperatorGroupHelper(ctx, o.client.Client, nonSDKOperatorGroupName, namespace, "foo")
 				err = o.createOperatorGroup(ctx)
 				Expect(err.Error()).To(ContainSubstring(`existing operator group "my-og"'s namespaces ["foo"] do not match desired namespaces []`))
 			})

@@ -41,11 +41,11 @@ type OperatorInstaller struct {
 	InstallMode       operator.InstallMode
 	CatalogCreator    CatalogCreator
 
-	cfg *client2.Client
+	client *client2.Client
 }
 
 func NewOperatorInstaller(cfg *client2.Client) *OperatorInstaller {
-	return &OperatorInstaller{cfg: cfg}
+	return &OperatorInstaller{client: cfg}
 }
 
 func (o OperatorInstaller) InstallOperator(ctx context.Context) (*v1alpha1.ClusterServiceVersion, error) {
@@ -106,7 +106,7 @@ func (o OperatorInstaller) waitForCatalogSource(ctx context.Context, cs *v1alpha
 
 	// verify that catalog source connection status is READY
 	catSrcCheck := wait.ConditionFunc(func() (done bool, err error) {
-		if err := o.cfg.Client.Get(ctx, catSrcKey, cs); err != nil {
+		if err := o.client.Get(ctx, catSrcKey, cs); err != nil {
 			return false, err
 		}
 		if cs.Status.GRPCConnectionState != nil {
@@ -161,10 +161,10 @@ func (o OperatorInstaller) createOperatorGroup(ctx context.Context) error {
 		log.Infof("Using existing operator group %q", og.GetName())
 	} else {
 		// New SDK-managed OperatorGroup.
-		og = newSDKOperatorGroup(o.cfg.Namespace,
+		og = newSDKOperatorGroup(o.client.Namespace,
 			withTargetNamespaces(targetNamespaces...))
 		log.Info("Creating OperatorGroup")
-		if err = o.cfg.Client.Create(ctx, og); err != nil {
+		if err = o.client.Create(ctx, og); err != nil {
 			return fmt.Errorf("error creating OperatorGroup: %w", err)
 		}
 	}
@@ -176,7 +176,7 @@ func (o OperatorInstaller) createOperatorGroup(ctx context.Context) error {
 // since CSVs in namespace will have an error status in that case.
 func (o OperatorInstaller) getOperatorGroup(ctx context.Context) (*v1.OperatorGroup, bool, error) {
 	ogList := &v1.OperatorGroupList{}
-	if err := o.cfg.Client.List(ctx, ogList, client.InNamespace(o.cfg.Namespace)); err != nil {
+	if err := o.client.List(ctx, ogList, client.InNamespace(o.client.Namespace)); err != nil {
 		return nil, false, err
 	}
 	if len(ogList.Items) == 0 {
@@ -187,42 +187,39 @@ func (o OperatorInstaller) getOperatorGroup(ctx context.Context) (*v1.OperatorGr
 		for _, og := range ogList.Items {
 			names = append(names, og.GetName())
 		}
-		return nil, true, fmt.Errorf("more than one operator group in namespace %s: %+q", o.cfg.Namespace, names)
+		return nil, true, fmt.Errorf("more than one operator group in namespace %s: %+q", o.client.Namespace, names)
 	}
 	return &ogList.Items[0], true, nil
 }
 
 func (o OperatorInstaller) createSubscription(ctx context.Context, cs *v1alpha1.CatalogSource) error {
-	sub := newSubscription(o.StartingCSV, o.cfg.Namespace,
+	sub := newSubscription(o.StartingCSV, o.client.Namespace,
 		withPackageChannel(o.PackageName, o.Channel, o.StartingCSV),
-		withCatalogSource(cs.GetName(), o.cfg.Namespace))
+		withCatalogSource(cs.GetName(), o.client.Namespace))
 	log.Info("Creating Subscription")
-	if err := o.cfg.Client.Create(ctx, sub); err != nil {
+	if err := o.client.Create(ctx, sub); err != nil {
 		return fmt.Errorf("error creating OperatorGroup: %w", err)
 	}
 	return nil
 }
 
 func (o OperatorInstaller) getInstalledCSV(ctx context.Context) (*v1alpha1.ClusterServiceVersion, error) {
-	c, err := olmclient.NewClientForConfig(o.cfg.RESTConfig)
-	if err != nil {
-		return nil, err
-	}
+	c := olmclient.Client(*o.client)
 
 	// BUG(estroz): if namespace is not contained in targetNamespaces,
 	// DoCSVWait will fail because the CSV is not deployed in namespace.
 	nn := types.NamespacedName{
 		Name:      o.StartingCSV,
-		Namespace: o.cfg.Namespace,
+		Namespace: o.client.Namespace,
 	}
 	log.Printf("Waiting for ClusterServiceVersion %q to reach 'Succeeded' phase", nn)
-	if err = c.DoCSVWait(ctx, nn); err != nil {
+	if err := c.DoCSVWait(ctx, nn); err != nil {
 		return nil, fmt.Errorf("error waiting for CSV to install: %w", err)
 	}
 
 	// TODO: check status of all resources in the desired bundle/package.
 	csv := &v1alpha1.ClusterServiceVersion{}
-	if err = o.cfg.Client.Get(ctx, nn, csv); err != nil {
+	if err := o.client.Get(ctx, nn, csv); err != nil {
 		return nil, fmt.Errorf("error getting installed CSV: %w", err)
 	}
 	return csv, nil

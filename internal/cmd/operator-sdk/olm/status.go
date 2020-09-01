@@ -15,28 +15,49 @@
 package olm
 
 import (
+	"context"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/operator-framework/operator-sdk/internal/client"
 	"github.com/operator-framework/operator-sdk/internal/olm/installer"
 )
 
 func newStatusCmd() *cobra.Command {
-	mgr := installer.Manager{}
+	var (
+		mgr     installer.Manager
+		timeout time.Duration
+	)
+	cl := client.Client{
+		NamespaceFlagInfo: &clientcmd.FlagInfo{
+			LongName:    "olm-namespace",
+			Default:     installer.DefaultOLMNamespace,
+			Description: "namespace where OLM is installed",
+		},
+		SkipKubeconfigFlag: true,
+	}
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Get the status of the Operator Lifecycle Manager installation in your cluster",
+		Use:               "status",
+		Short:             "Get the status of the Operator Lifecycle Manager installation in your cluster",
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return cl.Load() },
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := mgr.Status(); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			mgr.Client = installer.NewClient(cl)
+			if err := mgr.Status(ctx); err != nil {
 				log.Fatalf("Failed to get OLM status: %s", err)
 			}
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&mgr.OLMNamespace, "olm-namespace", installer.DefaultOLMNamespace, "namespace where OLM is installed")
 	cmd.Flags().StringVar(&mgr.Version, "version", "", "version of OLM installed on cluster; if unset"+
 		"operator-sdk attempts to auto-discover the version")
-	mgr.AddToFlagSet(cmd.Flags())
+	cmd.Flags().DurationVar(&timeout, "timeout", installer.DefaultTimeout, "time to wait for the command to complete before failing")
+	cl.BindFlags(cmd.Flags())
 	return cmd
 }

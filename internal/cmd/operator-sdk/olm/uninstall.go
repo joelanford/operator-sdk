@@ -15,19 +15,40 @@
 package olm
 
 import (
-	"github.com/operator-framework/operator-sdk/internal/olm/installer"
+	"context"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/operator-framework/operator-sdk/internal/client"
+	"github.com/operator-framework/operator-sdk/internal/olm/installer"
 )
 
 func newUninstallCmd() *cobra.Command {
-	mgr := installer.Manager{}
+	var (
+		mgr     installer.Manager
+		timeout time.Duration
+	)
+	cl := client.Client{
+		NamespaceFlagInfo: &clientcmd.FlagInfo{
+			LongName:    "olm-namespace",
+			Default:     installer.DefaultOLMNamespace,
+			Description: "namespace from where OLM is to be uninstalled.",
+		},
+		SkipKubeconfigFlag: true,
+	}
 	cmd := &cobra.Command{
-		Use:   "uninstall",
-		Short: "Uninstall Operator Lifecycle Manager from your cluster",
+		Use:               "uninstall",
+		Short:             "Uninstall Operator Lifecycle Manager from your cluster",
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return cl.Load() },
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := mgr.Uninstall(); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			mgr.Client = installer.NewClient(cl)
+			if err := mgr.Uninstall(ctx); err != nil {
 				log.Fatalf("Failed to uninstall OLM: %s", err)
 			}
 			return nil
@@ -35,8 +56,7 @@ func newUninstallCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&mgr.Version, "version", "", "version of OLM resources to uninstall.")
-	cmd.Flags().StringVar(&mgr.OLMNamespace, "olm-namespace", installer.DefaultOLMNamespace,
-		"namespace from where OLM is to be uninstalled.")
-	mgr.AddToFlagSet(cmd.Flags())
+	cmd.Flags().DurationVar(&timeout, "timeout", installer.DefaultTimeout, "time to wait for the command to complete before failing")
+	cl.BindFlags(cmd.Flags())
 	return cmd
 }
