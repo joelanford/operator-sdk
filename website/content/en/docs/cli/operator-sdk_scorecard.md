@@ -20,9 +20,9 @@ operator-sdk scorecard <bundle> [flags]
 ```
   -c, --config string            path to scorecard config file
   -h, --help                     help for scorecard
-      --kubeconfig string        Path to the kubeconfig file to use for CLI requests.
+      --kubeconfig string        kubeconfig path
   -L, --list                     Option to enable listing which tests are run
-  -n, --namespace string         If present, namespace scope for this CLI request
+  -n, --namespace string         namespace to run the test images in
   -o, --output string            Output format for results. Valid values: text, json (default "text")
   -l, --selector string          label selector to determine which tests are run
   -s, --service-account string   Service account to use for tests (default "default")

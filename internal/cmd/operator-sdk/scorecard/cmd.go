@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	scorecardannotations "github.com/operator-framework/operator-sdk/internal/annotations/scorecard"
 	"github.com/operator-framework/operator-sdk/internal/flags"
@@ -52,7 +53,17 @@ type scorecardCmd struct {
 
 func NewCmd() *cobra.Command {
 	c := scorecardCmd{
-		cfg: &operator.Configuration{},
+		cfg: &operator.Configuration{
+			NamespaceFlagInfo: &clientcmd.FlagInfo{
+				LongName:    "namespace",
+				ShortName:   "n",
+				Description: "namespace to run the test images in",
+			},
+			KubeconfigFlagInfo: &clientcmd.FlagInfo{
+				LongName:    "kubeconfig",
+				Description: "kubeconfig path",
+			},
+		},
 	}
 	scorecardCmd := &cobra.Command{
 		Use:   "scorecard <bundle>",

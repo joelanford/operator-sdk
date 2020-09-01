@@ -36,6 +36,11 @@ type Configuration struct {
 	Client         client.Client
 	Scheme         *runtime.Scheme
 
+	NamespaceFlagInfo  *clientcmd.FlagInfo
+	KubeconfigFlagInfo *clientcmd.FlagInfo
+	SkipNamespaceFlag  bool
+	SkipKubeconfigFlag bool
+
 	overrides *clientcmd.ConfigOverrides
 }
 
@@ -43,18 +48,36 @@ func (c *Configuration) BindFlags(fs *pflag.FlagSet) {
 	if c.overrides == nil {
 		c.overrides = &clientcmd.ConfigOverrides{}
 	}
-	clientcmd.BindOverrideFlags(c.overrides, fs, clientcmd.ConfigOverrideFlags{
-		ContextOverrideFlags: clientcmd.ContextOverrideFlags{
-			Namespace: clientcmd.FlagInfo{
+	if !c.SkipNamespaceFlag {
+		if c.NamespaceFlagInfo == nil {
+			c.NamespaceFlagInfo = &clientcmd.FlagInfo{
 				LongName:    "namespace",
 				ShortName:   "n",
-				Default:     "",
+				Default:     c.Namespace,
 				Description: "If present, namespace scope for this CLI request",
+			}
+		}
+		clientcmd.BindOverrideFlags(c.overrides, fs, clientcmd.ConfigOverrideFlags{
+			ContextOverrideFlags: clientcmd.ContextOverrideFlags{
+				Namespace: *c.NamespaceFlagInfo,
 			},
-		},
-	})
-	fs.StringVar(&c.KubeconfigPath, "kubeconfig", "",
-		"Path to the kubeconfig file to use for CLI requests.")
+		})
+	}
+	if !c.SkipKubeconfigFlag {
+		if c.KubeconfigFlagInfo == nil {
+			c.KubeconfigFlagInfo = &clientcmd.FlagInfo{
+				LongName:    "kubeconfig",
+				ShortName:   "",
+				Default:     c.KubeconfigPath,
+				Description: "Path to the kubeconfig file to use for CLI requests.",
+			}
+		}
+		fs.StringVarP(&c.KubeconfigPath,
+			c.KubeconfigFlagInfo.LongName,
+			c.KubeconfigFlagInfo.ShortName,
+			c.KubeconfigPath,
+			c.KubeconfigFlagInfo.Description)
+	}
 }
 
 func (c *Configuration) Load() error {
