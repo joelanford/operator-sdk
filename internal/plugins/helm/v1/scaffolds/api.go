@@ -18,11 +18,15 @@ limitations under the License.
 package scaffolds
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
+	"helm.sh/helm/v3/pkg/chart"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/kubebuilder/pkg/model"
 	"sigs.k8s.io/kubebuilder/pkg/model/config"
 	"sigs.k8s.io/kubebuilder/pkg/model/resource"
@@ -84,6 +88,11 @@ func (s *apiScaffolder) scaffold() error {
 		return errors.New("multiple groups are not allowed by default, to enable multi-group set 'multigroup: true' in your PROJECT file")
 	}
 
+	schema, err := loadSchema(chrt)
+	if err != nil {
+		return fmt.Errorf("failed to parse chart schema: %v", err)
+	}
+
 	res := r.NewResource(s.config, true)
 	s.config.AddResource(res.GVK())
 
@@ -91,7 +100,7 @@ func (s *apiScaffolder) scaffold() error {
 	if err := machinery.NewScaffold().Execute(
 		s.newUniverse(res),
 		&templates.WatchesUpdater{ChartPath: chartPath},
-		&crd.CRD{CRDVersion: s.opts.CRDVersion},
+		&crd.CRD{CRDVersion: s.opts.CRDVersion, SpecSchema: schema},
 		&crd.Kustomization{},
 		&rbac.CRDEditorRole{},
 		&rbac.CRDViewerRole{},
@@ -102,4 +111,27 @@ func (s *apiScaffolder) scaffold() error {
 	}
 
 	return nil
+}
+
+func loadSchema(chrt *chart.Chart) (*apiextv1.JSONSchemaProps, error) {
+	schema := &apiextv1.JSONSchemaProps{}
+	if len(chrt.Schema) > 0 {
+		if err := json.Unmarshal(chrt.Schema, schema); err != nil {
+			return nil, fmt.Errorf("failed to parse chart %q schema: %v", chrt.Name(), err)
+		}
+	}
+
+	for _, dep := range chrt.Dependencies() {
+		depSchema, err := loadSchema(dep)
+		if err != nil {
+			return nil, err
+		}
+		if depSchema != nil {
+			schema.Properties[dep.Name()] = *depSchema
+		}
+	}
+	if reflect.DeepEqual(*schema, apiextv1.JSONSchemaProps{}) {
+		return nil, nil
+	}
+	return schema, nil
 }
