@@ -127,6 +127,10 @@ func loadSchema(chrt *chart.Chart) (*apiextv1.JSONSchemaProps, error) {
 			return nil, err
 		}
 		if depSchema != nil {
+			if schema.Properties == nil {
+				schema.Type = "object"
+				schema.Properties = make(map[string]apiextv1.JSONSchemaProps)
+			}
 			schema.Properties[dep.Name()] = *depSchema
 		}
 	}
