@@ -33,7 +33,7 @@ var _ = Describe("Api", func() {
 				})
 				When("at least one has a schema", func() {
 					BeforeEach(func() {
-						dep.Schema = []byte(`{"type":"object", "properties":{"depField":{"type":"string"}}}`)
+						dep.Schema = []byte(`{"$schema": "something", "type":"object", "properties":{"depField":{"type":"string"}}}`)
 					})
 					It("should return a schema containing the nested dependency's schema as a property keyed by the dependency's name", func() {
 						s, err := loadSchema(chrt)
@@ -50,12 +50,18 @@ var _ = Describe("Api", func() {
 							},
 						}))
 					})
+					It("should unset the $schema value", func() {
+						s, err := loadSchema(chrt)
+						Expect(err).To(BeNil())
+						Expect(s.Schema).To(BeEmpty())
+						Expect(s.Properties["dep"].Schema).To(BeEmpty())
+					})
 				})
 			})
 		})
 		When("chart has a schema", func() {
 			BeforeEach(func() {
-				chrt.Schema = []byte(`{"type":"object", "properties":{"rootField":{"type":"string"}}}`)
+				chrt.Schema = []byte(`{"$schema": "something", "type":"object", "properties":{"rootField":{"type":"string"}}}`)
 			})
 			When("chart has no dependencies", func() {
 				It("should return a schema from the chart's schema", func() {
@@ -67,6 +73,11 @@ var _ = Describe("Api", func() {
 							"rootField": {Type: "string"},
 						},
 					}))
+				})
+				It("should unset the $schema value", func() {
+					s, err := loadSchema(chrt)
+					Expect(err).To(BeNil())
+					Expect(s.Schema).To(BeEmpty())
 				})
 			})
 			When("chart has dependencies", func() {
@@ -85,7 +96,7 @@ var _ = Describe("Api", func() {
 				})
 				When("at least one has a schema", func() {
 					BeforeEach(func() {
-						dep.Schema = []byte(`{"type":"object", "properties":{"depField":{"type":"string"}}}`)
+						dep.Schema = []byte(`{"$schema": "something", "type":"object", "properties":{"depField":{"type":"string"}}}`)
 					})
 					It("should return a schema from the chart's schema", func() {
 						s, err := loadSchema(chrt)
@@ -102,6 +113,12 @@ var _ = Describe("Api", func() {
 								},
 							},
 						}))
+					})
+					It("should unset the $schema value", func() {
+						s, err := loadSchema(chrt)
+						Expect(err).To(BeNil())
+						Expect(s.Schema).To(BeEmpty())
+						Expect(s.Properties["dep"].Schema).To(BeEmpty())
 					})
 				})
 			})

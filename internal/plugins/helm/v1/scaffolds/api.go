@@ -119,6 +119,7 @@ func loadSchema(chrt *chart.Chart) (*apiextv1.JSONSchemaProps, error) {
 		if err := json.Unmarshal(chrt.Schema, schema); err != nil {
 			return nil, fmt.Errorf("failed to parse chart %q schema: %v", chrt.Name(), err)
 		}
+		schema.Schema = ""
 	}
 
 	for _, dep := range chrt.Dependencies() {
