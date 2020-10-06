@@ -225,7 +225,7 @@ image-push-helm-multiarch:
 .PHONY: image-build-sdk image-push-sdk image-push-sdk-multiarch
 
 image-build-sdk: build/operator-sdk-dev-linux-gnu
-	./hack/image/build-sdk-image.sh $(OPERATOR_SDK_BASE_IMAGE):dev
+	docker build -f ./hack/image/operator-sdk/Dockerfile -t $(OPERATOR_SDK_BASE_IMAGE):dev .
 
 image-push-sdk:
 	./hack/image/push-image-tags.sh $(OPERATOR_SDK_BASE_IMAGE):dev $(OPERATOR_SDK_IMAGE)-$(shell go env GOARCH)
