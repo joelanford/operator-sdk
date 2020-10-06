@@ -46,7 +46,7 @@ var (
 )
 
 // BeforeSuite run before any specs are run to perform the required actions for all e2e Helm tests.
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	var err error
 
 	By("creating a new test context")
@@ -119,13 +119,11 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 
 	if isRunningOnKind() {
-		By("loading the project image into Kind cluster")
-		err = tc.LoadImageToKindCluster()
-		Expect(err).NotTo(HaveOccurred())
+		By("loading the project and scorecard images into Kind cluster")
+		Expect(tc.LoadImageToKindCluster()).To(Succeed())
+		Expect(tc.LoadImageToKindClusterWithName("quay.io/operator-framework/scorecard-test:dev")).To(Succeed())
 	}
-
-	close(done)
-}, 360)
+})
 
 // AfterSuite run after all the specs have run, regardless of whether any tests have failed to ensures that
 // all be cleaned up
