@@ -1,0 +1,10 @@
+# Ignore everything
+**
+
+# Except allow go files, git directory, and Makefile
+!go.(mod|sum)
+!/cmd
+!/internal
+!/.git
+!Makefile
+

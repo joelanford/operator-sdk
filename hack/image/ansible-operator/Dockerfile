@@ -1,3 +1,12 @@
+FROM golang:1.13-alpine as builder
+RUN apk update && apk add make git
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY ./ ./
+RUN make build/ansible-operator-dev-linux-gnu
+
 FROM registry.access.redhat.com/ubi8/ubi
 
 RUN mkdir -p /etc/ansible \
@@ -27,7 +36,7 @@ RUN yum clean all && rm -rf /var/cache/yum/* \
  && yum clean all \
  && rm -rf /var/cache/yum
 
-COPY ansible-operator-dev-linux-gnu /usr/local/bin/ansible-operator
+COPY --from=builder /app/build/ansible-operator-dev-linux-gnu /usr/local/bin/ansible-operator
 
 # Ensure directory permissions are properly set
 RUN echo "${USER_NAME}:x:${USER_UID}:0:${USER_NAME} user:${HOME}:/sbin/nologin" >> /etc/passwd \

@@ -198,14 +198,11 @@ image-build: image-build-ansible image-build-helm image-build-scorecard-test ima
 
 image-push: image-push-ansible image-push-helm image-push-scorecard-test image-push-scorecard-test-kuttl image-push-sdk ## Push all images
 
-# Ansible operator image scaffold/build/push.
-.PHONY: image-scaffold-ansible image-build-ansible image-push-ansible image-push-ansible-multiarch
+# Ansible operator image build/push.
+.PHONY: image-build-ansible image-push-ansible image-push-ansible-multiarch
 
-image-scaffold-ansible:
-	go run ./hack/image/ansible/scaffold-ansible-image.go
-
-image-build-ansible: build/ansible-operator-dev-linux-gnu
-	./hack/image/build-ansible-image.sh $(ANSIBLE_BASE_IMAGE):dev
+image-build-ansible:
+	docker build -f ./hack/image/ansible-operator/Dockerfile -t $(ANSIBLE_BASE_IMAGE):dev .
 
 image-push-ansible:
 	./hack/image/push-image-tags.sh $(ANSIBLE_BASE_IMAGE):dev $(ANSIBLE_IMAGE)-$(shell go env GOARCH)
