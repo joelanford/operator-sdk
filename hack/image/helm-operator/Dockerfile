@@ -1,3 +1,12 @@
+FROM golang:1.13-alpine as builder
+RUN apk update && apk add make git
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY ./ ./
+RUN make build/helm-operator-dev-linux-gnu
+
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 ENV HOME=/opt/helm \
@@ -5,7 +14,7 @@ ENV HOME=/opt/helm \
     USER_UID=1001
 
 RUN echo "${USER_NAME}:x:${USER_UID}:0:${USER_NAME} user:${HOME}:/sbin/nologin" >> /etc/passwd
-COPY helm-operator-dev-linux-gnu /usr/local/bin/helm-operator
+COPY --from=builder /app/build/helm-operator-dev-linux-gnu /usr/local/bin/helm-operator
 
 WORKDIR ${HOME}
 USER ${USER_UID}

@@ -210,14 +210,11 @@ image-push-ansible:
 image-push-ansible-multiarch:
 	./hack/image/push-manifest-list.sh $(ANSIBLE_IMAGE) ${ANSIBLE_ARCHES}
 
-# Helm operator image scaffold/build/push.
-.PHONY: image-scaffold-helm image-build-helm image-push-helm image-push-helm-multiarch
+# Helm operator image build/push.
+.PHONY: image-build-helm image-push-helm image-push-helm-multiarch
 
-image-scaffold-helm:
-	go run ./hack/image/helm/scaffold-helm-image.go
-
-image-build-helm: build/helm-operator-dev-linux-gnu
-	./hack/image/build-helm-image.sh $(HELM_BASE_IMAGE):dev
+image-build-helm:
+	docker build -f ./hack/image/helm-operator/Dockerfile -t $(HELM_BASE_IMAGE):dev .
 
 image-push-helm:
 	./hack/image/push-image-tags.sh $(HELM_BASE_IMAGE):dev $(HELM_IMAGE)-$(shell go env GOARCH)
