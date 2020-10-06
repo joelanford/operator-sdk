@@ -234,20 +234,20 @@ image-push-sdk-multiarch:
 	./hack/image/push-manifest-list.sh $(OPERATOR_SDK_IMAGE) ${OPERATOR_SDK_ARCHES}
 
 
-# Scorecard test image scaffold/build/push.
+# Scorecard test image build/push.
 .PHONY: image-build-scorecard-test image-push-scorecard-test image-push-scorecard-test-multiarch
 
-# Scorecard custom test image scaffold/build/push.
+# Scorecard custom test image build/push.
 .PHONY: image-build-custom-scorecard-tests
 
-# Scorecard test kuttl image scaffold/build/push.
+# Scorecard test kuttl image build/push.
 .PHONY: image-build-scorecard-test-kuttl image-push-scorecard-test-kuttl image-push-scorecard-test-kuttl-multiarch
 
 image-build-custom-scorecard-tests:
-	./hack/image/build-custom-scorecard-tests-image.sh $(CUSTOM_SCORECARD_TESTS_BASE_IMAGE):dev
+	docker build -f ./hack/image/custom-scorecard-tests/Dockerfile -t $(CUSTOM_SCORECARD_TESTS_BASE_IMAGE):dev .
 
 image-build-scorecard-test:
-	./hack/image/build-scorecard-test-image.sh $(SCORECARD_TEST_BASE_IMAGE):dev
+	docker build -f ./hack/image/scorecard-test/Dockerfile -t $(SCORECARD_TEST_BASE_IMAGE):dev .
 
 image-push-scorecard-test:
 	./hack/image/push-image-tags.sh $(SCORECARD_TEST_BASE_IMAGE):dev $(SCORECARD_TEST_IMAGE)-$(shell go env GOARCH)
@@ -256,7 +256,7 @@ image-push-scorecard-test-multiarch:
 	./hack/image/push-manifest-list.sh $(SCORECARD_TEST_IMAGE) ${SCORECARD_TEST_ARCHES}
 
 image-build-scorecard-test-kuttl:
-	./hack/image/build-scorecard-test-kuttl-image.sh $(SCORECARD_TEST_KUTTL_BASE_IMAGE):dev
+	docker build -f ./hack/image/scorecard-test-kuttl/Dockerfile -t $(SCORECARD_TEST_KUTTL_BASE_IMAGE):dev .
 
 image-push-scorecard-test-kuttl:
 	./hack/image/push-image-tags.sh $(SCORECARD_TEST_KUTTL_BASE_IMAGE):dev $(SCORECARD_TEST_KUTTL_IMAGE)-$(shell go env GOARCH)

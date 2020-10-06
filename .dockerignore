@@ -5,6 +5,7 @@
 !go.(mod|sum)
 !/cmd
 !/internal
+!/hack
 !/.git
 !Makefile
 
