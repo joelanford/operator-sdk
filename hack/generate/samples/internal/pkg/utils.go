@@ -36,7 +36,4 @@ func RunOlmIntegration(ctx *SampleContext) {
 
 	err = ctx.Make("bundle", "IMG="+ctx.ImageName)
 	CheckError("running make bundle", err)
-
-	err = ctx.Make("bundle-build", "BUNDLE_IMG="+ctx.BundleImageName)
-	CheckError("running make bundle-build", err)
 }
