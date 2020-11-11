@@ -1,0 +1,3 @@
+entries:
+  - description: Added support for new M1-based Macs.
+    kind: "addition"

@@ -55,16 +55,19 @@ image-push-multiarch/%:
 release_builds := \
 	dist/operator-sdk-$(GIT_VERSION)-aarch64-linux-gnu \
 	dist/operator-sdk-$(GIT_VERSION)-x86_64-linux-gnu \
+	dist/operator-sdk-$(GIT_VERSION)-aarch64-apple-darwin \
 	dist/operator-sdk-$(GIT_VERSION)-x86_64-apple-darwin \
 	dist/operator-sdk-$(GIT_VERSION)-ppc64le-linux-gnu \
 	dist/operator-sdk-$(GIT_VERSION)-s390x-linux-gnu \
 	dist/ansible-operator-$(GIT_VERSION)-aarch64-linux-gnu \
 	dist/ansible-operator-$(GIT_VERSION)-x86_64-linux-gnu \
+	dist/ansible-operator-$(GIT_VERSION)-aarch64-apple-darwin \
 	dist/ansible-operator-$(GIT_VERSION)-x86_64-apple-darwin \
 	dist/ansible-operator-$(GIT_VERSION)-ppc64le-linux-gnu \
 	dist/ansible-operator-$(GIT_VERSION)-s390x-linux-gnu \
 	dist/helm-operator-$(GIT_VERSION)-aarch64-linux-gnu \
 	dist/helm-operator-$(GIT_VERSION)-x86_64-linux-gnu \
+	dist/helm-operator-$(GIT_VERSION)-aarch64-apple-darwin \
 	dist/helm-operator-$(GIT_VERSION)-x86_64-apple-darwin \
 	dist/helm-operator-$(GIT_VERSION)-ppc64le-linux-gnu \
 	dist/helm-operator-$(GIT_VERSION)-s390x-linux-gnu
@@ -74,6 +77,7 @@ release: $(release_builds) $(release_builds:=.asc) ## Release the Operator SDK
 
 dist/operator-sdk-%-aarch64-linux-gnu: GOARGS = GOOS=linux GOARCH=arm64
 dist/operator-sdk-%-x86_64-linux-gnu: GOARGS = GOOS=linux GOARCH=amd64
+dist/operator-sdk-%-aarch64-apple-darwin: GOARGS = GOOS=darwin GOARCH=arm64
 dist/operator-sdk-%-x86_64-apple-darwin: GOARGS = GOOS=darwin GOARCH=amd64
 dist/operator-sdk-%-ppc64le-linux-gnu: GOARGS = GOOS=linux GOARCH=ppc64le
 dist/operator-sdk-%-s390x-linux-gnu: GOARGS = GOOS=linux GOARCH=s390x
@@ -81,6 +85,7 @@ dist/operator-sdk-%-linux-gnu: GOARGS = GOOS=linux
 
 dist/ansible-operator-%-aarch64-linux-gnu: GOARGS = GOOS=linux GOARCH=arm64
 dist/ansible-operator-%-x86_64-linux-gnu: GOARGS = GOOS=linux GOARCH=amd64
+dist/ansible-operator-%-aarch64-apple-darwin: GOARGS = GOOS=darwin GOARCH=arm64
 dist/ansible-operator-%-x86_64-apple-darwin: GOARGS = GOOS=darwin GOARCH=amd64
 dist/ansible-operator-%-ppc64le-linux-gnu: GOARGS = GOOS=linux GOARCH=ppc64le
 dist/ansible-operator-%-s390x-linux-gnu: GOARGS = GOOS=linux GOARCH=s390x
@@ -88,6 +93,7 @@ dist/ansible-operator-%-linux-gnu: GOARGS = GOOS=linux
 
 dist/helm-operator-%-aarch64-linux-gnu: GOARGS = GOOS=linux GOARCH=arm64
 dist/helm-operator-%-x86_64-linux-gnu: GOARGS = GOOS=linux GOARCH=amd64
+dist/helm-operator-%-aarch64-apple-darwin: GOARGS = GOOS=darwin GOARCH=arm64
 dist/helm-operator-%-x86_64-apple-darwin: GOARGS = GOOS=darwin GOARCH=amd64
 dist/helm-operator-%-ppc64le-linux-gnu: GOARGS = GOOS=linux GOARCH=ppc64le
 dist/helm-operator-%-s390x-linux-gnu: GOARGS = GOOS=linux GOARCH=s390x
