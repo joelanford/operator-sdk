@@ -255,7 +255,7 @@ $ git checkout -b release-v1.3.0
 Run the CHANGELOG and migration guide generator:
 
 ```sh
-$ GEN_CHANGELOG_TAG=v1.3.0 make gen-changelog
+$ GEN_CHANGELOG_TAG=v1.3.0 make changelog
 ```
 
 Commit the following changes:
@@ -295,7 +295,7 @@ Call the script with the only argument being the new SDK version:
 $ ./release.sh v1.3.0
 ```
 
-`operator-sdk` release binaries and signatures will be in `build/`. Both binary and signature file names contain version, architecture,
+`operator-sdk` release binaries and signatures will be in `dist/`. Both binary and signature file names contain version, architecture,
 and platform information; signature file names correspond to the binary they were generated from suffixed with `.asc`.
 For example, signature file `operator-sdk-v1.3.0-x86_64-apple-darwin.asc` was generated from a binary named `operator-sdk-v1.3.0-x86_64-apple-darwin`.
 To verify binaries and tags, see the [verification section](#verifying-a-release).
@@ -360,41 +360,24 @@ To create a GitHub release:
 Unlock the `master` or release branch after the Github release is complete.
 See [this section](#locking-down-branches) for steps to do so.
 
+### 11. Announce the release
+
+Send an email to the [mailing list][mailing-list]
+Post to Kubernetes slack in #kubernetes-operators and #operator-sdk-dev.
+
+### 12. Bump open issues to the next release.
+
+In the [GitHub milestone][gh-milestones], bump any open issues to the
+following release.
+
 ---
 
-You've now fully released a new version of the Operator SDK. Good work! Make sure to follow the post-release steps below.
+You've now fully released a new version of the Operator SDK. Good work! 
 
-### (Post-release) Updating the operator-sdk-samples repo
-
-Many releases change SDK API's and conventions, which are not reflected in the [operator-sdk-samples repo][sdk-samples-repo]. The samples repo should be updated and versioned after each SDK major/minor release with the same tag, ex. `v1.3.0`, so users can refer to the correct operator code for that release.
-
-The release process for the samples repo is simple:
-
-1. Make changes to all relevant operators (at least those referenced by SDK docs) based on API changes for the new SDK release.
-1. Ensure the operators build and run as expected (see each operator's docs).
-1. Once all API changes are in `master`, create a release tag locally:
-    ```sh
-    $ git checkout master && git pull
-    $ export VER="v1.3.0"
-    $ git tag --sign --message "Operator SDK Samples $VER" "$VER"
-    ```
-1. Push the tag to the remote, assuming `upstream` is the name of the upstream remote:
-    ```sh
-    $ git push upstream $VER
-    ```
-
-### (Post-release) Updating the release notes
-
-Add the following line to the top of the GitHub release notes for `v1.3.0`:
-
-```md
-**NOTE:** ensure the `v1.3.0` tag is referenced when referring to sample code in the [SDK Operator samples repo](https://github.com/operator-framework/operator-sdk-samples/tree/v1.3.0) for this release. Links in SDK documentation are currently set to the samples repo `master` branch.
-```
-
-[install-guide]: /docs/installation/install-operator-sdk
+[install-guide]: /docs/installation/
 [doc-maintainers]: https://github.com/operator-framework/operator-sdk/blob/master/MAINTAINERS
 [doc-owners]: https://github.com/operator-framework/operator-sdk/blob/master/OWNERS
-[doc-readme-prereqs]: /docs/installation/install-operator-sdk#prerequisites-for-compilation
+[doc-readme-prereqs]: /docs/installation/#prerequisites-for-compilation
 [doc-git-default-key]:https://help.github.com/en/articles/telling-git-about-your-signing-key
 [doc-gpg-default-key]:https://lists.gnupg.org/pipermail/gnupg-users/2001-September/010163.html
 [link-github-gpg-key-upload]:https://github.com/settings/keys
@@ -407,3 +390,5 @@ Add the following line to the top of the GitHub release notes for `v1.3.0`:
 [homebrew-readme]:https://github.com/Homebrew/homebrew-core/blob/master/CONTRIBUTING.md#to-submit-a-version-upgrade-for-the-foo-formula
 [homebrew-repo]:https://github.com/Homebrew/homebrew-core
 [sdk-samples-repo]:https://github.com/operator-framework/operator-sdk-samples
+[mailing-list]:https://groups.google.com/g/operator-framework
+[gh-milestones]:https://github.com/operator-framework/operator-sdk/milestones

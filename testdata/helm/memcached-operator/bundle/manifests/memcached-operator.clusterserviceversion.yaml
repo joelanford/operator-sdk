@@ -56,8 +56,6 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    operators.operatorframework.io/builder: operator-sdk-v1.0.0+git
-    operators.operatorframework.io/project_layout: helm.sdk.operatorframework.io/v1
   name: memcached-operator.v0.0.1
   namespace: placeholder
 spec:
@@ -99,6 +97,7 @@ spec:
           resources:
           - memcacheds
           - memcacheds/status
+          - memcacheds/finalizers
           verbs:
           - create
           - delete
@@ -110,15 +109,37 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - pods
           - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
           verbs:
-          - '*'
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - apps
           resources:
+          - deployments
+          - daemonsets
+          - replicasets
           - statefulsets
           verbs:
-          - '*'
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - policy
           resources:

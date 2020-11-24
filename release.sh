@@ -27,17 +27,9 @@ if ! git diff-index --quiet HEAD --; then
 	exit 1
 fi
 
-GO_VER="1.13"
+GO_VER="1.15"
 if ! go version | cut -d" " -f3 | grep -q "$GO_VER"; then
 	echo "must compile binaries with Go compiler version v${GO_VER}"
-	exit 1
-fi
-
-# Detect whether versions in code were updated.
-VER_FILE="internal/version/version.go"
-CURR_VER="$(sed -nr 's|\s+Version\s+= "(.+)"|\1|p' "$VER_FILE" | tr -d ' \t\n')"
-if [[ "$VER" != "$CURR_VER" ]]; then
-	echo "version is not set correctly in $VER_FILE"
 	exit 1
 fi
 
@@ -53,7 +45,7 @@ git tag --sign --message "Operator SDK $VER" "$VER"
 git verify-tag --verbose "$VER"
 
 # Run the release builds.
-make release V=1
+make release
 
 # Verify the signatures
-for f in $(ls build/*.asc); do gpg --verify $f; done
+for f in $(ls dist/*.asc); do gpg --verify $f; done

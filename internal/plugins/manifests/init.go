@@ -18,8 +18,9 @@ package manifests
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 
-	"sigs.k8s.io/kubebuilder/pkg/model/config"
+	"sigs.k8s.io/kubebuilder/v2/pkg/model/config"
 
 	"github.com/operator-framework/operator-sdk/internal/util/projutil"
 )
@@ -61,7 +62,11 @@ func initUpdateMakefile(cfg *config.Config, filePath string) error {
 
 	makefileBytes = append(makefileBytes, []byte(makefileBundleBuildFragment)...)
 
-	return ioutil.WriteFile(filePath, makefileBytes, 0644)
+	var mode os.FileMode = 0644
+	if info, err := os.Stat(filePath); err != nil {
+		mode = info.Mode()
+	}
+	return ioutil.WriteFile(filePath, makefileBytes, mode)
 }
 
 // Makefile fragments to add to the base Makefile.
@@ -83,7 +88,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 	makefileBundleFragmentGo = `
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests
+bundle: manifests kustomize
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
