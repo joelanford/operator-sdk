@@ -18,6 +18,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"k8s.io/apimachinery/pkg/selection"
 	"os"
 	"runtime"
 	"strings"
@@ -25,10 +27,9 @@ import (
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
+	apimachruntime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -45,6 +46,9 @@ import (
 	"github.com/operator-framework/operator-sdk/internal/helm/watches"
 	"github.com/operator-framework/operator-sdk/internal/util/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/internal/version"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var log = logf.Log.WithName("cmd")
@@ -135,23 +139,6 @@ func run(cmd *cobra.Command, f *flags.Flags) {
 
 	// Set default manager options
 	options = f.ToManagerOptions(options)
-
-	if options.NewClient == nil {
-		options.NewClient = func(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
-			// Create the Client for Write operations.
-			c, err := client.New(config, options)
-			if err != nil {
-				return nil, err
-			}
-
-			return client.NewDelegatingClient(client.NewDelegatingClientInput{
-				CacheReader:       cache,
-				Client:            c,
-				UncachedObjects:   uncachedObjects,
-				CacheUnstructured: true,
-			})
-		}
-	}
 	namespace, found := os.LookupEnv(k8sutil.WatchNamespaceEnvVar)
 	log = log.WithValues("Namespace", namespace)
 	if found {
@@ -174,6 +161,47 @@ func run(cmd *cobra.Command, f *flags.Flags) {
 		options.Namespace = metav1.NamespaceAll
 	}
 
+	ws, err := watches.Load(f.WatchesFile)
+	if err != nil {
+		log.Error(err, "Failed to create new manager factories.")
+		os.Exit(1)
+	}
+
+	sch := apimachruntime.NewScheme()
+	byObject := map[client.Object]cache.ByObject{}
+	chartNames := []string{}
+	for _, w := range ws {
+		// Register the GVK with the scheme
+		sch.AddKnownTypeWithName(w.GroupVersionKind, &unstructured.Unstructured{})
+
+		// Add the watched GVK to the selectorsByObject map
+		crObj := &unstructured.Unstructured{}
+		crObj.SetGroupVersionKind(w.GroupVersionKind)
+		sel, err := metav1.LabelSelectorAsSelector(&w.Selector)
+		if err != nil {
+			log.Error(err, "Unable to parse label selector")
+			os.Exit(1)
+		}
+		byObject[crObj] = cache.ByObject{Label: sel}
+
+		chrt, err := loader.LoadDir(w.ChartDir)
+		if err != nil {
+			log.Error(err, "Unable to load chart", "directory", w.ChartDir)
+			os.Exit(1)
+		}
+		chartNames = append(chartNames, chrt.Name())
+	}
+
+	req, err := labels.NewRequirement("helm.sdk.operatorframework.io/chart", selection.In, chartNames)
+	defaultSelector := labels.NewSelector().Add(*req)
+	fmt.Println(defaultSelector.String())
+	options.NewCache = cache.BuilderWithOptions(cache.Options{
+		ByObject:             byObject,
+		DefaultLabelSelector: defaultSelector,
+	})
+
+	options.Scheme = sch
+	options.Client.Cache = &client.CacheOptions{Unstructured: true}
 	mgr, err := manager.New(cfg, options)
 	if err != nil {
 		log.Error(err, "Failed to create a new manager.")
@@ -189,11 +217,6 @@ func run(cmd *cobra.Command, f *flags.Flags) {
 		os.Exit(1)
 	}
 
-	ws, err := watches.Load(f.WatchesFile)
-	if err != nil {
-		log.Error(err, "Failed to create new manager factories.")
-		os.Exit(1)
-	}
 	acg, err := helmClient.NewActionConfigGetter(mgr.GetConfig(), mgr.GetRESTMapper(), mgr.GetLogger())
 	if err != nil {
 		log.Error(err, "Failed to create Helm action config getter")

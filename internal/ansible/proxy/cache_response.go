@@ -37,6 +37,7 @@ import (
 
 	"github.com/operator-framework/operator-sdk/internal/ansible/proxy/controllermap"
 	k8sRequest "github.com/operator-framework/operator-sdk/internal/ansible/proxy/requestfactory"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type marshaler interface {
@@ -46,6 +47,7 @@ type marshaler interface {
 type cacheResponseHandler struct {
 	next              http.Handler
 	informerCache     cache.Cache
+	sch               *runtime.Scheme
 	restMapper        meta.RESTMapper
 	watchedNamespaces map[string]interface{}
 	cMap              *controllermap.ControllerMap
@@ -216,7 +218,7 @@ func (c *cacheResponseHandler) recoverDependentWatches(req *http.Request, un *un
 
 	for _, oRef := range un.GetOwnerReferences() {
 		if oRef.APIVersion == ownerRef.APIVersion && oRef.Kind == ownerRef.Kind {
-			err := addWatchToController(*ownerRef, c.cMap, un, c.restMapper, true)
+			err := addWatchToController(*ownerRef, c.cMap, un, c.informerCache, c.sch, c.restMapper, true)
 			if err != nil {
 				log.Error(err, "Could not recover dependent resource watch", "owner", ownerRef)
 				return
@@ -231,7 +233,7 @@ func (c *cacheResponseHandler) recoverDependentWatches(req *http.Request, un *un
 			return
 		}
 		if typeString == fmt.Sprintf("%v.%v", ownerRef.Kind, ownerGV.Group) {
-			err := addWatchToController(*ownerRef, c.cMap, un, c.restMapper, false)
+			err := addWatchToController(*ownerRef, c.cMap, un, c.informerCache, c.sch, c.restMapper, false)
 			if err != nil {
 				log.Error(err, "Could not recover dependent resource watch", "owner", ownerRef)
 				return

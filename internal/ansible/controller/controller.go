@@ -35,6 +35,7 @@ import (
 	"github.com/operator-framework/operator-sdk/internal/ansible/events"
 	"github.com/operator-framework/operator-sdk/internal/ansible/handler"
 	"github.com/operator-framework/operator-sdk/internal/ansible/runner"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 )
 
 var log = logf.Log.WithName("ansible-controller")
@@ -93,8 +94,10 @@ func Add(mgr manager.Manager, options Options) *controller.Controller {
 	//Create new controller runtime controller and set the controller to watch GVK.
 	c, err := controller.New(fmt.Sprintf("%v-controller", strings.ToLower(options.GVK.Kind)), mgr,
 		controller.Options{
-			Reconciler:              aor,
-			MaxConcurrentReconciles: options.MaxConcurrentReconciles,
+			Reconciler: aor,
+			Controller: config.Controller{
+				MaxConcurrentReconciles: options.MaxConcurrentReconciles,
+			},
 		})
 	if err != nil {
 		log.Error(err, "")
@@ -125,7 +128,7 @@ func Add(mgr manager.Manager, options Options) *controller.Controller {
 
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(options.GVK)
-	err = c.Watch(&source.Kind{Type: u}, &handler.LoggingEnqueueRequestForObject{}, predicates...)
+	err = c.Watch(source.Kind(mgr.GetCache(), u), &handler.LoggingEnqueueRequestForObject{}, predicates...)
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)

@@ -14,7 +14,10 @@
 package handler
 
 import (
+	"context"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,42 +25,50 @@ import (
 	crHandler "sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
-// LoggingEnqueueRequestForOwner wraps operator-lib handler for
+// loggingEnqueueRequestForOwner wraps operator-lib handler for
 // "InstrumentedEnqueueRequestForObject", and logs the events as they occur
 //
 //	&handler.LoggingEnqueueRequestForOwner{}
-type LoggingEnqueueRequestForOwner struct {
-	crHandler.EnqueueRequestForOwner
+type loggingEnqueueRequestForOwner struct {
+	crHandler.EventHandler
+	ownerType client.Object
+}
+
+func LoggingEnqueueRequestForOwner(sch *runtime.Scheme, mapper meta.RESTMapper, ownerType client.Object, opts ...crHandler.OwnerOption) crHandler.EventHandler {
+	return loggingEnqueueRequestForOwner{
+		EventHandler: crHandler.EnqueueRequestForOwner(sch, mapper, ownerType, opts...),
+		ownerType:    ownerType,
+	}
 }
 
 // Create implements EventHandler, and emits a log message.
-func (h LoggingEnqueueRequestForOwner) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (h loggingEnqueueRequestForOwner) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	h.logEvent("Create", e.Object, nil)
-	h.EnqueueRequestForOwner.Create(e, q)
+	h.EventHandler.Create(ctx, e, q)
 }
 
 // Update implements EventHandler, and emits a log message.
-func (h LoggingEnqueueRequestForOwner) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (h loggingEnqueueRequestForOwner) Update(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	h.logEvent("Update", e.ObjectOld, e.ObjectNew)
-	h.EnqueueRequestForOwner.Update(e, q)
+	h.EventHandler.Update(ctx, e, q)
 }
 
 // Delete implements EventHandler, and emits a log message.
-func (h LoggingEnqueueRequestForOwner) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (h loggingEnqueueRequestForOwner) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	h.logEvent("Delete", e.Object, nil)
-	h.EnqueueRequestForOwner.Delete(e, q)
+	h.EventHandler.Delete(ctx, e, q)
 }
 
 // Generic implements EventHandler, and emits a log message.
-func (h LoggingEnqueueRequestForOwner) Generic(e event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (h loggingEnqueueRequestForOwner) Generic(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
 	h.logEvent("Generic", e.Object, nil)
-	h.EnqueueRequestForOwner.Generic(e, q)
+	h.EventHandler.Generic(ctx, e, q)
 }
 
-func (h LoggingEnqueueRequestForOwner) logEvent(eventType string, object, newObject client.Object) {
-	ownerReference := extractTypedOwnerReference(h.EnqueueRequestForOwner.OwnerType.GetObjectKind().GroupVersionKind(), object.GetOwnerReferences())
+func (h loggingEnqueueRequestForOwner) logEvent(eventType string, object, newObject client.Object) {
+	ownerReference := extractTypedOwnerReference(h.ownerType.GetObjectKind().GroupVersionKind(), object.GetOwnerReferences())
 	if ownerReference == nil && newObject != nil {
-		ownerReference = extractTypedOwnerReference(h.EnqueueRequestForOwner.OwnerType.GetObjectKind().GroupVersionKind(), newObject.GetOwnerReferences())
+		ownerReference = extractTypedOwnerReference(h.ownerType.GetObjectKind().GroupVersionKind(), newObject.GetOwnerReferences())
 	}
 
 	// If no ownerReference was found then it's probably not an event we care about

@@ -90,7 +90,11 @@ type Client struct {
 }
 
 func NewClientForConfig(cfg *rest.Config) (*Client, error) {
-	rm, err := apiutil.NewDynamicRESTMapper(cfg)
+	httpClient, err := rest.HTTPClientFor(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP client: %v", err)
+	}
+	rm, err := apiutil.NewDynamicRESTMapper(cfg, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dynamic rest mapper: %v", err)
 	}
